@@ -151,6 +151,56 @@ function Estoque() {
           ))}
         </div>
       </div>
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="glass-strong border-white/10">
+          <SheetHeader>
+            <SheetTitle>Novo Insumo</SheetTitle>
+            <SheetDescription>Cadastre um novo item no seu estoque.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Nome</label>
+              <input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Polpa de Maracujá"
+                className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Quantidade</label>
+                <input
+                  value={form.qty}
+                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Unidade</label>
+                <select
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lt">lt</option>
+                  <option value="un">un</option>
+                  <option value="g">g</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleSaveItem}>
+              <Plus className="h-4 w-4" /> Cadastrar Insumo
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </AppLayout>
   );
 }
