@@ -187,27 +187,35 @@ function PDV() {
             <p className="text-xs text-muted-foreground mb-2">Forma de pagamento</p>
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
-                { l: "Dinheiro", i: Banknote },
-                { l: "Cartão", i: CreditCard },
-                { l: "PIX", i: Smartphone },
-              ].map(({ l, i: Ic }) => (
-                <button
-                  key={l}
-                  className="glass rounded-xl p-3 flex flex-col items-center gap-1 hover:bg-white/10 transition"
-                >
-                  <Ic className="h-5 w-5 text-primary" />
-                  <span className="text-xs">{l}</span>
-                </button>
-              ))}
+                { l: "Dinheiro" as const, i: Banknote },
+                { l: "Cartão" as const, i: CreditCard },
+                { l: "PIX" as const, i: Smartphone },
+              ].map(({ l, i: Ic }) => {
+                const active = payment === l;
+                return (
+                  <button
+                    key={l}
+                    onClick={() => setPayment(l)}
+                    className={`relative rounded-xl p-3 flex flex-col items-center gap-1 transition-all active:scale-95 ${
+                      active
+                        ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                        : "glass text-foreground hover:bg-white/10"
+                    }`}
+                  >
+                    <Ic className={`h-5 w-5 ${active ? "text-primary-foreground" : "text-primary"}`} />
+                    <span className="text-xs font-medium">{l}</span>
+                  </button>
+                );
+              })}
             </div>
             <Button
               variant="gradient"
               size="lg"
               className="w-full rounded-xl"
-              disabled={cart.length === 0}
-              onClick={() => setCart([])}
+              disabled={cart.length === 0 || saving}
+              onClick={handleSaveSale}
             >
-              Finalizar Venda
+              {saving ? "Registrando..." : "Finalizar Venda"}
             </Button>
           </GlassCard>
         </div>
