@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PdvRouteImport } from './routes/pdv'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LancamentosRouteImport } from './routes/lancamentos'
 import { Route as EstoqueRouteImport } from './routes/estoque'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const PdvRoute = PdvRouteImport.update({
   id: '/pdv',
   path: '/pdv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LancamentosRoute = LancamentosRouteImport.update({
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof ConfiguracoesRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
+  '/login': typeof LoginRoute
   '/pdv': typeof PdvRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof ConfiguracoesRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
+  '/login': typeof LoginRoute
   '/pdv': typeof PdvRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,28 @@ export interface FileRoutesById {
   '/configuracoes': typeof ConfiguracoesRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
+  '/login': typeof LoginRoute
   '/pdv': typeof PdvRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/configuracoes' | '/estoque' | '/lancamentos' | '/pdv'
+  fullPaths:
+    | '/'
+    | '/configuracoes'
+    | '/estoque'
+    | '/lancamentos'
+    | '/login'
+    | '/pdv'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/configuracoes' | '/estoque' | '/lancamentos' | '/pdv'
-  id: '__root__' | '/' | '/configuracoes' | '/estoque' | '/lancamentos' | '/pdv'
+  to: '/' | '/configuracoes' | '/estoque' | '/lancamentos' | '/login' | '/pdv'
+  id:
+    | '__root__'
+    | '/'
+    | '/configuracoes'
+    | '/estoque'
+    | '/lancamentos'
+    | '/login'
+    | '/pdv'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +98,7 @@ export interface RootRouteChildren {
   ConfiguracoesRoute: typeof ConfiguracoesRoute
   EstoqueRoute: typeof EstoqueRoute
   LancamentosRoute: typeof LancamentosRoute
+  LoginRoute: typeof LoginRoute
   PdvRoute: typeof PdvRoute
 }
 
@@ -86,6 +109,13 @@ declare module '@tanstack/react-router' {
       path: '/pdv'
       fullPath: '/pdv'
       preLoaderRoute: typeof PdvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lancamentos': {
@@ -124,17 +154,9 @@ const rootRouteChildren: RootRouteChildren = {
   ConfiguracoesRoute: ConfiguracoesRoute,
   EstoqueRoute: EstoqueRoute,
   LancamentosRoute: LancamentosRoute,
+  LoginRoute: LoginRoute,
   PdvRoute: PdvRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
