@@ -1,16 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Package, AlertTriangle, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/estoque")({
   head: () => ({ meta: [{ title: "Estoque — FrostCash" }] }),
   component: Estoque,
 });
 
-const items = [
+const initialItems = [
   { name: "Polpa de Açaí", qty: "18 kg", pct: 82, color: "from-success to-success/40" },
   { name: "Casquinhas", qty: "240 un", pct: 65, color: "from-primary to-primary/40" },
   { name: "Leite Condensado", qty: "12 lt", pct: 48, color: "from-chart-4 to-chart-4/40" },
@@ -22,7 +32,40 @@ const items = [
 ];
 
 function Estoque() {
+  const [items, setItems] = useState(initialItems);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", qty: "", unit: "kg" });
   const lowStock = items.filter((i) => i.pct < 30).length;
+
+  // TODO(supabase): substituir mock por select em `inventory_items`
+  async function fetchStockData() {
+    // const { data } = await supabase.from("inventory_items").select("*");
+    // if (data) setItems(data.map(...))
+  }
+
+  useEffect(() => {
+    fetchStockData();
+  }, []);
+
+  // TODO(supabase): insert em `inventory_items`
+  async function handleSaveItem() {
+    if (!form.name || !form.qty) {
+      toast.error("Preencha nome e quantidade.");
+      return;
+    }
+    setItems((prev) => [
+      ...prev,
+      {
+        name: form.name,
+        qty: `${form.qty} ${form.unit}`,
+        pct: 100,
+        color: "from-success to-success/40",
+      },
+    ]);
+    toast.success("Insumo cadastrado!", { description: form.name });
+    setSheetOpen(false);
+    setForm({ name: "", qty: "", unit: "kg" });
+  }
 
   return (
     <AppLayout>
@@ -34,7 +77,7 @@ function Estoque() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Controle de insumos em tempo real.</p>
           </div>
-          <Button variant="gradient" className="rounded-xl">
+          <Button variant="gradient" className="rounded-xl" onClick={() => setSheetOpen(true)}>
             <Plus className="h-4 w-4" /> Novo Insumo
           </Button>
         </header>
@@ -108,6 +151,56 @@ function Estoque() {
           ))}
         </div>
       </div>
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="glass-strong border-white/10">
+          <SheetHeader>
+            <SheetTitle>Novo Insumo</SheetTitle>
+            <SheetDescription>Cadastre um novo item no seu estoque.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Nome</label>
+              <input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Polpa de Maracujá"
+                className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Quantidade</label>
+                <input
+                  value={form.qty}
+                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
+                  placeholder="0"
+                  inputMode="decimal"
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Unidade</label>
+                <select
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lt">lt</option>
+                  <option value="un">un</option>
+                  <option value="g">g</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleSaveItem}>
+              <Plus className="h-4 w-4" /> Cadastrar Insumo
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </AppLayout>
   );
 }

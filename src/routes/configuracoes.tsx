@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { User, Store, Bell, Lock, CreditCard, LogOut, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,14 @@ const sections = [
 ];
 
 function Configuracoes() {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    if (typeof window !== "undefined") sessionStorage.removeItem("frostcash:auth");
+    toast.success("Sessão encerrada");
+    navigate({ to: "/login" });
+  }
+
   return (
     <AppLayout>
       <div className="space-y-6 max-w-3xl">
@@ -66,7 +75,7 @@ function Configuracoes() {
           ))}
         </div>
 
-        <Button variant="glass" className="w-full rounded-xl text-secondary">
+        <Button variant="glass" className="w-full rounded-xl text-secondary" onClick={handleLogout}>
           <LogOut className="h-4 w-4" /> Sair da conta
         </Button>
 
