@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trash2, CreditCard, Banknote, Smartphone, IceCream } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -40,9 +41,20 @@ const products: Record<Cat, { name: string; price: number }[]> = {
   ],
 };
 
+type PaymentMethod = "Dinheiro" | "Cartão" | "PIX";
+
 function PDV() {
   const [cat, setCat] = useState<Cat>("Massa");
   const [cart, setCart] = useState<{ name: string; price: number; qty: number }[]>([]);
+  const [payment, setPayment] = useState<PaymentMethod>("Dinheiro");
+  const [saving, setSaving] = useState(false);
+
+  // TODO(supabase): substituir pelo fetch de produtos do banco
+  // async function fetchProducts() {}
+
+  useEffect(() => {
+    // TODO(supabase): carregar produtos/categorias do banco ao montar a tela
+  }, []);
 
   function add(p: { name: string; price: number }) {
     setCart((c) => {
@@ -53,6 +65,25 @@ function PDV() {
   }
 
   const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  // TODO(supabase): conectar ao endpoint de vendas (insert em `sales` + `sale_items`)
+  async function handleSaveSale() {
+    if (cart.length === 0) return;
+    setSaving(true);
+    try {
+      // const { error } = await supabase.from("sales").insert({ ... });
+      await new Promise((r) => setTimeout(r, 400));
+      toast.success("Venda registrada com sucesso!", {
+        description: `${cart.reduce((s, i) => s + i.qty, 0)} item(ns) · ${payment} · R$ ${total.toFixed(2)}`,
+      });
+      setCart([]);
+      setPayment("Dinheiro");
+    } catch {
+      toast.error("Não foi possível registrar a venda.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <AppLayout>
