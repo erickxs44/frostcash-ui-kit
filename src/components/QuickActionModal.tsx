@@ -3,6 +3,7 @@ import { X, TrendingUp, TrendingDown, IceCream2, ArrowLeft } from "lucide-react"
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { addExpense, registerSale, useStore } from "@/lib/store";
 
 type Step = "menu" | "venda" | "despesa";
 
@@ -15,9 +16,11 @@ export function QuickActionModal({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const products = useStore((s) => s.products);
   const [step, setStep] = useState<Step>("menu");
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
+  const [productId, setProductId] = useState<string>(products[0]?.id ?? "");
   const [categoria, setCategoria] = useState<(typeof categorias)[number]>("Insumos");
 
   function reset() {
@@ -34,16 +37,28 @@ export function QuickActionModal({
     reset();
   }
 
-  // TODO(supabase): conectar ao insert de `sales` ou `expenses`
-  async function handleSubmit() {
-    if (!amount || !desc) {
-      toast.error("Preencha todos os campos.");
+  function handleSubmit() {
+    const value = parseFloat(amount.replace(",", "."));
+    if (!value || value <= 0) {
+      toast.error("Informe um valor válido.");
       return;
     }
     if (step === "venda") {
-      toast.success("Venda registrada com sucesso!", { description: `${desc} · R$ ${amount}` });
+      const prod = products.find((p) => p.id === productId);
+      if (!prod) {
+        toast.error("Selecione um produto.");
+        return;
+      }
+      const qty = Math.max(1, Math.round(value / prod.price)) || 1;
+      registerSale([{ productId: prod.id, name: prod.name, price: prod.price, qty }], "Dinheiro");
+      toast.success("Venda registrada!", { description: `${qty}x ${prod.name}` });
     } else {
-      toast.success("Despesa registrada!", { description: `${desc} · ${categoria} · R$ ${amount}` });
+      if (!desc) {
+        toast.error("Informe a descrição.");
+        return;
+      }
+      addExpense({ description: desc, amount: value, category: categoria });
+      toast.success("Despesa registrada!", { description: `${desc} · R$ ${value.toFixed(2)}` });
     }
     close();
   }
@@ -136,6 +151,22 @@ export function QuickActionModal({
                   exit={{ opacity: 0, x: 12 }}
                   className="space-y-3"
                 >
+                  {step === "venda" && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Produto</label>
+                      <select
+                        value={productId}
+                        onChange={(e) => setProductId(e.target.value)}
+                        className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — R$ {p.price.toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs text-muted-foreground mb-1.5 block">Valor (R$)</label>
                     <input
@@ -146,37 +177,39 @@ export function QuickActionModal({
                       className="w-full glass rounded-xl px-4 py-3 text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Descrição</label>
-                    <input
-                      value={desc}
-                      onChange={(e) => setDesc(e.target.value)}
-                      placeholder={step === "venda" ? "Ex: Picolé chocolate" : "Ex: Conta de luz"}
-                      className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                  </div>
                   {step === "despesa" && (
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Categoria</label>
-                      <div className="flex flex-wrap gap-2">
-                        {categorias.map((c) => {
-                          const active = categoria === c;
-                          return (
-                            <button
-                              key={c}
-                              onClick={() => setCategoria(c)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                                active
-                                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                  : "glass text-muted-foreground hover:text-foreground"
-                              }`}
-                            >
-                              {c}
-                            </button>
-                          );
-                        })}
+                    <>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Descrição</label>
+                        <input
+                          value={desc}
+                          onChange={(e) => setDesc(e.target.value)}
+                          placeholder="Ex: Conta de luz"
+                          className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
                       </div>
-                    </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Categoria</label>
+                        <div className="flex flex-wrap gap-2">
+                          {categorias.map((c) => {
+                            const active = categoria === c;
+                            return (
+                              <button
+                                key={c}
+                                onClick={() => setCategoria(c)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                                  active
+                                    ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                    : "glass text-muted-foreground hover:text-foreground"
+                                }`}
+                              >
+                                {c}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
                   )}
                   <Button onClick={handleSubmit} variant="gradient" size="lg" className="w-full mt-2 rounded-xl">
                     Registrar {step === "venda" ? "Venda" : "Despesa"}

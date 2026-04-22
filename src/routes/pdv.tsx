@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, CreditCard, Banknote, Smartphone, IceCream } from "lucide-react";
+import { Trash2, CreditCard, Banknote, Smartphone, IceCream, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
+import { Product, registerSale, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/pdv")({
   head: () => ({ meta: [{ title: "PDV — FrostCash" }] }),
@@ -14,67 +15,74 @@ export const Route = createFileRoute("/pdv")({
 
 const categories = ["Massa", "Picolé", "Bebidas", "Acompanhamentos"] as const;
 type Cat = (typeof categories)[number];
-
-const products: Record<Cat, { name: string; price: number }[]> = {
-  Massa: [
-    { name: "Casquinha Simples", price: 6 },
-    { name: "Sundae Chocolate", price: 12 },
-    { name: "1 Bola Pote", price: 8 },
-    { name: "2 Bolas Pote", price: 14 },
-    { name: "Banana Split", price: 22 },
-    { name: "Milkshake 400ml", price: 18 },
-  ],
-  Picolé: [
-    { name: "Picolé Frutas", price: 5 },
-    { name: "Picolé Chocolate", price: 7 },
-    { name: "Picolé Premium", price: 9 },
-  ],
-  Bebidas: [
-    { name: "Refrigerante Lata", price: 6 },
-    { name: "Água 500ml", price: 4 },
-    { name: "Suco Natural", price: 10 },
-  ],
-  Acompanhamentos: [
-    { name: "Calda Extra", price: 2 },
-    { name: "Granulado", price: 1.5 },
-    { name: "Cobertura Morango", price: 3 },
-  ],
-};
-
 type PaymentMethod = "Dinheiro" | "Cartão" | "PIX";
 
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+interface CartLine {
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+}
+
 function PDV() {
+  const products = useStore((s) => s.products);
+  const stock = useStore((s) => s.stock);
   const [cat, setCat] = useState<Cat>("Massa");
-  const [cart, setCart] = useState<{ name: string; price: number; qty: number }[]>([]);
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [payment, setPayment] = useState<PaymentMethod>("Dinheiro");
   const [saving, setSaving] = useState(false);
 
-  // TODO(supabase): substituir pelo fetch de produtos do banco
-  // async function fetchProducts() {}
+  const visible = products.filter((p) => p.category === cat);
 
-  useEffect(() => {
-    // TODO(supabase): carregar produtos/categorias do banco ao montar a tela
-  }, []);
-
-  function add(p: { name: string; price: number }) {
+  function addToCart(p: Product) {
     setCart((c) => {
-      const found = c.find((i) => i.name === p.name);
-      if (found) return c.map((i) => (i.name === p.name ? { ...i, qty: i.qty + 1 } : i));
-      return [...c, { ...p, qty: 1 }];
+      const found = c.find((i) => i.productId === p.id);
+      if (found) return c.map((i) => (i.productId === p.id ? { ...i, qty: i.qty + 1 } : i));
+      return [...c, { productId: p.id, name: p.name, price: p.price, qty: 1 }];
     });
   }
 
-  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  function changeQty(productId: string, delta: number) {
+    setCart((c) =>
+      c
+        .map((i) => (i.productId === productId ? { ...i, qty: i.qty + delta } : i))
+        .filter((i) => i.qty > 0),
+    );
+  }
 
-  // TODO(supabase): conectar ao endpoint de vendas (insert em `sales` + `sale_items`)
+  function removeLine(productId: string) {
+    setCart((c) => c.filter((i) => i.productId !== productId));
+  }
+
+  // Subtotal e total — recalculados em tempo real
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const total = subtotal;
+
+  // CMV estimado da comanda atual (custo dos insumos)
+  const cmv = cart.reduce((sum, line) => {
+    const prod = products.find((p) => p.id === line.productId);
+    if (!prod) return sum;
+    return (
+      sum +
+      prod.recipe.reduce((rs, r) => {
+        const s = stock.find((x) => x.id === r.stockId);
+        return s ? rs + r.qty * s.costPerUnit * line.qty : rs;
+      }, 0)
+    );
+  }, 0);
+  const lucroEstimado = total - cmv;
+
+  // TODO(supabase): substituir por insert em `sales` + `sale_items` (RPC para baixa de estoque)
   async function handleSaveSale() {
     if (cart.length === 0) return;
     setSaving(true);
     try {
-      // const { error } = await supabase.from("sales").insert({ ... });
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 300));
+      registerSale(cart, payment);
       toast.success("Venda registrada com sucesso!", {
-        description: `${cart.reduce((s, i) => s + i.qty, 0)} item(ns) · ${payment} · R$ ${total.toFixed(2)}`,
+        description: `${cart.reduce((s, i) => s + i.qty, 0)} item(ns) · ${payment} · ${fmt(total)} · Lucro ${fmt(lucroEstimado)}`,
       });
       setCart([]);
       setPayment("Dinheiro");
@@ -118,19 +126,19 @@ function PDV() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {products[cat].map((p) => (
+              {visible.map((p) => (
                 <motion.button
-                  key={p.name}
+                  key={p.id}
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => add(p)}
+                  onClick={() => addToCart(p)}
                   className="glass rounded-2xl p-4 text-left hover:shadow-glow transition-shadow"
                 >
                   <div className="h-10 w-10 rounded-lg bg-gradient-primary/20 flex items-center justify-center mb-3">
                     <IceCream className="h-5 w-5 text-primary" />
                   </div>
                   <p className="font-medium text-sm">{p.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">R$ {p.price.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{fmt(p.price)}</p>
                 </motion.button>
               ))}
             </div>
@@ -147,40 +155,61 @@ function PDV() {
                 )}
                 {cart.map((i) => (
                   <motion.div
-                    key={i.name}
+                    key={i.productId}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="flex items-center justify-between glass rounded-lg p-2.5"
+                    className="flex items-center justify-between glass rounded-lg p-2.5 gap-2"
                   >
-                    <div className="text-sm">
-                      <p className="font-medium">{i.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {i.qty}x R$ {i.price.toFixed(2)}
-                      </p>
+                    <div className="text-sm min-w-0 flex-1">
+                      <p className="font-medium truncate">{i.name}</p>
+                      <p className="text-xs text-muted-foreground">{fmt(i.price)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">R$ {(i.price * i.qty).toFixed(2)}</span>
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={() => setCart((c) => c.filter((x) => x.name !== i.name))}
-                        className="text-muted-foreground hover:text-destructive transition"
+                        onClick={() => changeQty(i.productId, -1)}
+                        className="h-6 w-6 rounded-md glass flex items-center justify-center hover:bg-white/10"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="text-sm font-semibold w-5 text-center">{i.qty}</span>
+                      <button
+                        onClick={() => changeQty(i.productId, 1)}
+                        className="h-6 w-6 rounded-md glass flex items-center justify-center hover:bg-white/10"
+                      >
+                        <Plus className="h-3 w-3" />
                       </button>
                     </div>
+                    <span className="text-sm font-semibold whitespace-nowrap">{fmt(i.price * i.qty)}</span>
+                    <button
+                      onClick={() => removeLine(i.productId)}
+                      className="text-muted-foreground hover:text-destructive transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
 
-            <div className="border-t border-white/10 pt-4 mb-4">
+            <div className="border-t border-white/10 pt-4 mb-4 space-y-1">
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Subtotal</span>
-                <span>R$ {total.toFixed(2)}</span>
+                <span>{fmt(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>CMV (custo)</span>
+                <span>{fmt(cmv)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Lucro estimado</span>
+                <span className={lucroEstimado >= 0 ? "text-success font-medium" : "text-secondary font-medium"}>
+                  {fmt(lucroEstimado)}
+                </span>
               </div>
               <div className="flex justify-between mt-2">
                 <span className="font-semibold">Total</span>
-                <span className="text-2xl font-bold text-gradient">R$ {total.toFixed(2)}</span>
+                <span className="text-2xl font-bold text-gradient">{fmt(total)}</span>
               </div>
             </div>
 
