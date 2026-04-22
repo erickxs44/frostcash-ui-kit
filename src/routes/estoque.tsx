@@ -1,16 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Package, AlertTriangle, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/estoque")({
   head: () => ({ meta: [{ title: "Estoque — FrostCash" }] }),
   component: Estoque,
 });
 
-const items = [
+const initialItems = [
   { name: "Polpa de Açaí", qty: "18 kg", pct: 82, color: "from-success to-success/40" },
   { name: "Casquinhas", qty: "240 un", pct: 65, color: "from-primary to-primary/40" },
   { name: "Leite Condensado", qty: "12 lt", pct: 48, color: "from-chart-4 to-chart-4/40" },
@@ -22,7 +32,40 @@ const items = [
 ];
 
 function Estoque() {
+  const [items, setItems] = useState(initialItems);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", qty: "", unit: "kg" });
   const lowStock = items.filter((i) => i.pct < 30).length;
+
+  // TODO(supabase): substituir mock por select em `inventory_items`
+  async function fetchStockData() {
+    // const { data } = await supabase.from("inventory_items").select("*");
+    // if (data) setItems(data.map(...))
+  }
+
+  useEffect(() => {
+    fetchStockData();
+  }, []);
+
+  // TODO(supabase): insert em `inventory_items`
+  async function handleSaveItem() {
+    if (!form.name || !form.qty) {
+      toast.error("Preencha nome e quantidade.");
+      return;
+    }
+    setItems((prev) => [
+      ...prev,
+      {
+        name: form.name,
+        qty: `${form.qty} ${form.unit}`,
+        pct: 100,
+        color: "from-success to-success/40",
+      },
+    ]);
+    toast.success("Insumo cadastrado!", { description: form.name });
+    setSheetOpen(false);
+    setForm({ name: "", qty: "", unit: "kg" });
+  }
 
   return (
     <AppLayout>
@@ -34,7 +77,7 @@ function Estoque() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Controle de insumos em tempo real.</p>
           </div>
-          <Button variant="gradient" className="rounded-xl">
+          <Button variant="gradient" className="rounded-xl" onClick={() => setSheetOpen(true)}>
             <Plus className="h-4 w-4" /> Novo Insumo
           </Button>
         </header>
