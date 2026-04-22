@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { User, Store, Bell, Lock, CreditCard, LogOut, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
