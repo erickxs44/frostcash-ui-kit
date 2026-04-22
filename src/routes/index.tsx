@@ -187,7 +187,7 @@ function Dashboard() {
                     backdropFilter: "blur(10px)",
                   }}
                   labelStyle={{ color: "oklch(0.97 0.01 240)" }}
-                  formatter={(v: number) => fmt(v)}
+                  formatter={(v) => fmt(Number(v))}
                 />
                 <Area type="monotone" dataKey="v" stroke="oklch(0.86 0.09 185)" strokeWidth={2.5} fill="url(#g1)" />
               </AreaChart>
