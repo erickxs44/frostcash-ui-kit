@@ -257,15 +257,13 @@ export function addStockPurchase(input: {
     const newStock = [...s.stock];
     let target: StockItem | undefined = input.stockId ? newStock.find((x) => x.id === input.stockId) : newStock.find((x) => x.name.toLowerCase() === input.name.toLowerCase());
     if (target) {
-      // recalcula custo médio ponderado
-      const newQty = target.qty + input.qty;
-      const newSpent = target.totalSpent + input.totalCost;
-      target.qty = newQty;
-      target.totalSpent = newSpent;
-      target.costPerUnit = newQty > 0 ? newSpent / (newQty + (target.totalSpent / Math.max(target.costPerUnit, 0.0001) - target.qty + input.qty - newQty)) : input.totalCost / input.qty;
-      // Simplificação: custo médio = totalCost médio das compras / qty comprada acumulada.
-      // Para evitar fórmula confusa, recalculamos como média ponderada simples:
-      target.costPerUnit = input.totalCost / input.qty; // último custo
+      // Custo médio ponderado: (estoqueAtual * custoAtual + qtdComprada * custoNovo) / total
+      const novoCustoUnit = input.totalCost / input.qty;
+      const valorEstoqueAtual = target.qty * target.costPerUnit;
+      const totalQty = target.qty + input.qty;
+      target.costPerUnit = totalQty > 0 ? (valorEstoqueAtual + input.totalCost) / totalQty : novoCustoUnit;
+      target.qty = totalQty;
+      target.totalSpent += input.totalCost;
     } else {
       target = {
         id: `s_${uid()}`,
