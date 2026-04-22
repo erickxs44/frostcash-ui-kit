@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
   Wallet,
@@ -23,6 +23,11 @@ import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    if (typeof window !== "undefined" && !sessionStorage.getItem("frostcash:auth")) {
+      throw redirect({ to: "/login" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — FrostCash" },

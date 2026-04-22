@@ -31,6 +31,7 @@ function LoginPage() {
       setLoading(false);
       // Demo: aceita qualquer email com senha "frost123"
       if (password === "frost123") {
+        sessionStorage.setItem("frostcash:auth", "1");
         navigate({ to: "/" });
       } else {
         setError(true);
