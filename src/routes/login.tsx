@@ -1,8 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Snowflake, Loader2 } from "lucide-react";
-import { SplashScreen } from "@/components/SplashScreen";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -16,7 +15,6 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [showSplash, setShowSplash] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -47,10 +45,6 @@ function LoginPage() {
 
   return (
     <>
-      <AnimatePresence>
-        {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
-      </AnimatePresence>
-
       <div className="min-h-screen flex">
         {/* Lado decorativo */}
         <div className="hidden lg:flex flex-1 relative overflow-hidden bg-splash">
@@ -106,7 +100,7 @@ function LoginPage() {
         <div className="flex-1 flex items-center justify-center p-5 lg:p-10">
           <motion.div
             initial="hidden"
-            animate={showSplash ? "hidden" : "show"}
+            animate="show"
             variants={{ show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } } }}
             className="glass-strong w-full max-w-md rounded-3xl p-7 lg:p-9 space-y-5"
           >

@@ -1,5 +1,8 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
+import { SplashScreen } from "@/components/SplashScreen";
 
 import appCss from "../styles.css?url";
 
@@ -65,11 +68,18 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { ThemeProvider } from "@/components/ThemeProvider";
+
 function RootComponent() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <>
+    <ThemeProvider defaultTheme="light" storageKey="frostcash-theme">
+      <AnimatePresence>
+        {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      </AnimatePresence>
       <Outlet />
-      <Toaster position="top-center" theme="dark" richColors />
-    </>
+      <Toaster position="top-center" richColors />
+    </ThemeProvider>
   );
 }

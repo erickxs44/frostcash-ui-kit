@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { User, Store, Bell, Lock, CreditCard, LogOut, ChevronRight } from "lucide-react";
+import { User, Store, Bell, Lock, CreditCard, LogOut, ChevronRight, Sun, Moon, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/components/ThemeProvider";
 
 export const Route = createFileRoute("/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — FrostCash" }] }),
@@ -21,11 +22,18 @@ const sections = [
 
 function Configuracoes() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
 
   function handleLogout() {
     if (typeof window !== "undefined") sessionStorage.removeItem("frostcash:auth");
     toast.success("Sessão encerrada");
     navigate({ to: "/login" });
+  }
+
+  function toggleTheme() {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    toast.success(`Tema ${newTheme === "dark" ? "escuro" : "claro"} ativado`);
   }
 
   return (
@@ -54,12 +62,34 @@ function Configuracoes() {
         </GlassCard>
 
         <div className="space-y-2">
+          {/* Theme Toggle Button */}
+          <motion.button
+            onClick={toggleTheme}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            whileHover={{ x: 4 }}
+            className="w-full glass rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-white/5 transition"
+          >
+            <div className="h-10 w-10 rounded-xl bg-gradient-primary/20 flex items-center justify-center">
+              {theme === "dark" ? (
+                <Moon className="h-5 w-5 text-primary" />
+              ) : (
+                <Sun className="h-5 w-5 text-primary" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm">Aparência: Tema {theme === "dark" ? "Escuro" : "Claro"}</p>
+              <p className="text-xs text-muted-foreground">Clique para alternar o tema do sistema</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </motion.button>
+
           {sections.map((s, i) => (
             <motion.button
               key={s.title}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
+              transition={{ delay: (i + 1) * 0.05 }}
               whileHover={{ x: 4 }}
               className="w-full glass rounded-2xl p-4 flex items-center gap-4 text-left hover:bg-white/5 transition"
             >

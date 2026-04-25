@@ -7,6 +7,7 @@ import {
   IceCream,
   ArrowUpRight,
   ArrowDownRight,
+  Lock,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -19,6 +20,15 @@ import {
 } from "recharts";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { useState } from "react";
 import { calculateBalance, calculateProfit, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
@@ -41,6 +51,8 @@ const fmt = (v: number) =>
 
 function Dashboard() {
   const transactions = useStore((s) => s.transactions);
+  const stock = useStore((s) => s.stock);
+  const [isClosing, setIsClosing] = useState(false);
 
   const today = new Date().toDateString();
   const todaysTx = transactions.filter((t) => new Date(t.date).toDateString() === today);
@@ -114,14 +126,107 @@ function Dashboard() {
     },
   ];
 
+  const handleFecharCaixa = async (days: number) => {
+    setIsClosing(true);
+    try {
+      let targetTxs = transactions;
+      let dateLabel = "";
+      
+      if (days === 1) {
+        targetTxs = todaysTx;
+        dateLabel = `Hoje (${new Date().toLocaleDateString("pt-BR")})`;
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - days);
+        targetTxs = transactions.filter(t => new Date(t.date) >= d);
+        dateLabel = `Últimos ${days} dias`;
+      }
+
+      const pix = targetTxs.filter(t => t.kind === "sale" && t.payment === "PIX").reduce((sum, t) => sum + t.amount, 0);
+      const cartao = targetTxs.filter(t => t.kind === "sale" && t.payment === "Cartão").reduce((sum, t) => sum + t.amount, 0);
+      const dinheiro = targetTxs.filter(t => t.kind === "sale" && t.payment === "Dinheiro").reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalVendas = pix + cartao + dinheiro;
+      const saidasPeriodo = targetTxs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+      const lucroPeriodo = totalVendas - saidasPeriodo;
+      
+      const { sendCloseRegisterReport } = await import("@/lib/resend");
+      const { sendWhatsAppMessage } = await import("@/lib/twilio");
+      
+      const emailResult = await sendCloseRegisterReport({
+        pix,
+        cartao,
+        dinheiro,
+        totalVendas,
+        totalDespesas: saidasPeriodo,
+        lucroEstimado: lucroPeriodo,
+        dateStr: dateLabel
+      });
+
+      const fmtStr = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+      let msg = `*🧊 Relatório de Fechamento - FrostCash*\n`;
+      msg += `📅 *Período:* ${dateLabel}\n\n`;
+      msg += `*💰 Resumo de Vendas:*\n`;
+      msg += `🟩 *PIX:* ${fmtStr(pix)}\n`;
+      msg += `💳 *Cartão:* ${fmtStr(cartao)}\n`;
+      msg += `💵 *Dinheiro:* ${fmtStr(dinheiro)}\n\n`;
+      msg += `📈 *Total em Vendas:* ${fmtStr(totalVendas)}\n`;
+      msg += `🔥 *Total de Despesas:* ${fmtStr(saidasPeriodo)}\n`;
+      msg += `✅ *Lucro (Vendas - Despesas):* ${fmtStr(lucroPeriodo)}\n`;
+
+      const wppResult = await sendWhatsAppMessage(msg);
+
+      if (emailResult.success && wppResult.success) {
+        toast.success(`Relatório (${dateLabel}) enviado por E-mail e WhatsApp.`);
+      } else {
+        if (!emailResult.success) toast.error(`Erro no E-mail: ${emailResult.error}`);
+        if (!wppResult.success) toast.warning(`Aviso no WhatsApp: ${wppResult.error}`);
+        if (emailResult.success) toast.success("Relatório salvo e enviado por E-mail.");
+        if (wppResult.success) toast.success("Relatório salvo e enviado por WhatsApp.");
+      }
+    } catch (err) {
+      toast.error("Ocorreu um erro ao processar o fechamento.");
+      console.error(err);
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-8">
-        <header className="flex flex-col gap-1">
-          <p className="text-sm text-muted-foreground">Bom dia, Sorveteria Rio 🍦</p>
-          <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">
-            Resumo de <span className="text-gradient">hoje</span>
-          </h1>
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-muted-foreground">Bom dia, Sorveteria Rio 🍦</p>
+            <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">
+              Resumo de <span className="text-gradient">hoje</span>
+            </h1>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="gradient" 
+                disabled={isClosing}
+                className="shadow-glow"
+              >
+                <Lock className="w-4 h-4 mr-2" />
+                {isClosing ? "Gerando..." : "Fechar Caixa (Relatório)"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 glass border-white/10">
+              <DropdownMenuItem onClick={() => handleFecharCaixa(1)} className="hover:bg-white/10 cursor-pointer">
+                📅 Relatório de Hoje
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFecharCaixa(7)} className="hover:bg-white/10 cursor-pointer">
+                📅 Últimos 7 dias
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFecharCaixa(30)} className="hover:bg-white/10 cursor-pointer">
+                📅 Últimos 30 dias
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">

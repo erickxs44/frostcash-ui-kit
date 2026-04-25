@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Package, AlertTriangle, Plus, TrendingDown } from "lucide-react";
+import { Package, AlertTriangle, Plus, TrendingDown, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
@@ -18,6 +18,7 @@ import {
   StockItem,
   Unit,
   addStockPurchase,
+  registerNewStockItem,
   registerLoss,
   stockPercent,
   stockValue,
@@ -33,42 +34,69 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 function Estoque() {
   const items = useStore((s) => s.stock);
-  const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Sheet: cadastrar novo produto
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState({ name: "", unit: "kg" as Unit, maxQty: "" });
+
+  // Sheet: comprar insumo (reposição)
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [buyStockId, setBuyStockId] = useState("");
+  const [buyQty, setBuyQty] = useState("");
+  const [buyCost, setBuyCost] = useState("");
+
+  // Sheet: perda
   const [lossOpen, setLossOpen] = useState<StockItem | null>(null);
   const [lossQty, setLossQty] = useState("");
   const [lossReason, setLossReason] = useState("");
 
-  const [form, setForm] = useState({
-    name: "",
-    qty: "",
-    unit: "kg" as Unit,
-    cost: "",
-    minQty: "",
-  });
-
-  const lowStock = items.filter((i) => i.qty <= i.minQty).length;
+  const lowStock = items.filter((i) => stockPercent(i) < 20).length;
   const valor = stockValue(items);
 
-  // TODO(supabase): substituir por insert em `inventory_items` (e gera trigger de despesa)
-  function handleSaveItem() {
-    const qty = parseFloat(form.qty.replace(",", "."));
-    const cost = parseFloat(form.cost.replace(",", "."));
-    if (!form.name || !qty || !cost) {
-      toast.error("Preencha nome, quantidade e custo total.");
+  // --- Handlers ---
+  function handleNewProduct() {
+    const maxQty = parseFloat(newForm.maxQty.replace(",", "."));
+    if (!newForm.name.trim()) {
+      toast.error("Informe o nome do produto.");
       return;
     }
-    addStockPurchase({
-      name: form.name,
-      unit: form.unit,
-      qty,
-      totalCost: cost,
-      minQty: form.minQty ? parseFloat(form.minQty.replace(",", ".")) : undefined,
-    });
-    toast.success("Compra registrada!", {
-      description: `${qty} ${form.unit} de ${form.name} · ${fmt(cost)} (custo: ${fmt(cost / qty)}/${form.unit})`,
-    });
-    setSheetOpen(false);
-    setForm({ name: "", qty: "", unit: "kg", cost: "", minQty: "" });
+    if (!maxQty || maxQty <= 0) {
+      toast.error("Informe a quantidade máxima.");
+      return;
+    }
+    const exists = items.find((x) => x.name.toLowerCase() === newForm.name.trim().toLowerCase());
+    if (exists) {
+      toast.error("Esse produto já existe no estoque.");
+      return;
+    }
+    registerNewStockItem({ name: newForm.name.trim(), unit: newForm.unit, maxQty });
+    toast.success("Produto cadastrado!", { description: `${newForm.name} · máx ${maxQty}${newForm.unit}` });
+    setNewOpen(false);
+    setNewForm({ name: "", unit: "kg", maxQty: "" });
+  }
+
+  function handleBuy() {
+    const item = items.find((x) => x.id === buyStockId);
+    if (!item) {
+      toast.error("Selecione um produto.");
+      return;
+    }
+    const qty = parseFloat(buyQty.replace(",", "."));
+    const cost = parseFloat(buyCost.replace(",", "."));
+    if (!qty || qty <= 0) {
+      toast.error("Informe a quantidade comprada.");
+      return;
+    }
+    if (!cost || cost <= 0) {
+      toast.error("Informe o custo da compra.");
+      return;
+    }
+    addStockPurchase({ stockId: item.id, name: item.name, unit: item.unit, qty, totalCost: cost });
+    toast.success("Compra registrada!", { description: `+${qty}${item.unit} de ${item.name} · ${fmt(cost)}` });
+    setBuyOpen(false);
+    setBuyStockId("");
+    setBuyQty("");
+    setBuyCost("");
   }
 
   function handleSaveLoss() {
@@ -78,10 +106,10 @@ function Estoque() {
       toast.error("Informe a quantidade perdida.");
       return;
     }
-    const valor = qty * lossOpen.costPerUnit;
+    const valorPerda = qty * lossOpen.costPerUnit;
     registerLoss(lossOpen.id, qty, lossReason || undefined);
     toast.success("Perda registrada", {
-      description: `${qty} ${lossOpen.unit} de ${lossOpen.name} · prejuízo ${fmt(valor)}`,
+      description: `${qty} ${lossOpen.unit} de ${lossOpen.name} · prejuízo ${fmt(valorPerda)}`,
     });
     setLossOpen(null);
     setLossQty("");
@@ -98,11 +126,19 @@ function Estoque() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Controle de insumos em tempo real.</p>
           </div>
-          <Button variant="gradient" className="rounded-xl" onClick={() => setSheetOpen(true)}>
-            <Plus className="h-4 w-4" /> Comprar Insumo
-          </Button>
+          <div className="flex gap-2">
+            {items.length > 0 && (
+              <Button variant="outline" className="rounded-xl glass border-white/10" onClick={() => setBuyOpen(true)}>
+                <ShoppingCart className="h-4 w-4" /> Comprar Insumo
+              </Button>
+            )}
+            <Button variant="gradient" className="rounded-xl" onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4" /> Novo Produto
+            </Button>
+          </div>
         </header>
 
+        {/* Resumo cards */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <GlassCard>
             <div className="flex items-center gap-3">
@@ -121,7 +157,7 @@ function Estoque() {
                 <AlertTriangle className="h-5 w-5 text-secondary" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Estoque Baixo</p>
+                <p className="text-xs text-muted-foreground">Estoque Crítico</p>
                 <p className="text-xl font-bold">{lowStock}</p>
               </div>
             </div>
@@ -132,15 +168,15 @@ function Estoque() {
           </GlassCard>
         </div>
 
+        {/* Lista de estoque */}
         <div className="grid sm:grid-cols-2 gap-3">
           {items.map((item, i) => {
             const pct = stockPercent(item);
-            const isLow = item.qty <= item.minQty;
-            const color = isLow
+            const color = pct < 20
               ? "from-secondary to-secondary/40"
-              : pct < 60
-                ? "from-chart-4 to-chart-4/40"
-                : "from-success to-success/40";
+              : pct >= 50
+                ? "from-success to-success/40"
+                : "from-chart-4 to-chart-4/40";
             return (
               <motion.div
                 key={item.id}
@@ -153,7 +189,7 @@ function Estoque() {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {item.qty.toFixed(item.unit === "un" ? 0 : 2)} {item.unit} · custo {fmt(item.costPerUnit)}/{item.unit}
+                        {item.qty.toFixed(item.unit === "un" ? 0 : 2)} / {item.maxQty} {item.unit}
                       </p>
                       {item.totalLoss > 0 && (
                         <p className="text-[10px] text-secondary mt-0.5">
@@ -163,14 +199,15 @@ function Estoque() {
                     </div>
                     <span
                       className={`text-sm font-bold ${
-                        isLow ? "text-secondary" : pct < 60 ? "text-chart-4" : "text-success"
+                        pct < 20 ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"
                       }`}
                     >
                       {pct}%
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+                  <div className="h-2.5 rounded-full bg-white/5 overflow-hidden">
                     <motion.div
+                      key={`bar-${item.id}-${pct}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${pct}%` }}
                       transition={{ duration: 0.9, ease: "easeOut" }}
@@ -178,111 +215,211 @@ function Estoque() {
                     />
                   </div>
                   <div className="flex items-center justify-between mt-3">
-                    {isLow ? (
+                    {pct < 20 ? (
                       <p className="text-xs text-secondary flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Abaixo do mínimo ({item.minQty} {item.unit})
+                        <AlertTriangle className="h-3 w-3" /> Crítico!
                       </p>
                     ) : (
                       <p className="text-[11px] text-muted-foreground">Mín: {item.minQty} {item.unit}</p>
                     )}
-                    <button
-                      onClick={() => setLossOpen(item)}
-                      className="text-[11px] text-muted-foreground hover:text-secondary flex items-center gap-1 transition"
-                    >
-                      <TrendingDown className="h-3 w-3" /> Registrar perda
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setBuyStockId(item.id);
+                          setBuyOpen(true);
+                        }}
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1 transition"
+                      >
+                        <ShoppingCart className="h-3 w-3" /> Repor
+                      </button>
+                      <button
+                        onClick={() => setLossOpen(item)}
+                        className="text-[11px] text-muted-foreground hover:text-secondary flex items-center gap-1 transition"
+                      >
+                        <TrendingDown className="h-3 w-3" /> Perda
+                      </button>
+                    </div>
                   </div>
                 </GlassCard>
               </motion.div>
             );
           })}
+
+          {items.length === 0 && (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center glass rounded-3xl border-dashed border-2 border-white/10">
+              <Package className="h-14 w-14 text-muted-foreground mb-4 opacity-20" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">Seu estoque está vazio</p>
+              <p className="text-sm text-muted-foreground/60 mb-6 text-center max-w-xs">
+                Cadastre seus produtos para começar a controlar insumos, compras e vendas.
+              </p>
+              <Button variant="gradient" onClick={() => setNewOpen(true)} className="rounded-xl">
+                <Plus className="h-4 w-4" /> Cadastrar Primeiro Produto
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sheet: nova compra */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      {/* ============================================= */}
+      {/* Sheet: + Novo Produto (cadastro)              */}
+      {/* ============================================= */}
+      <Sheet open={newOpen} onOpenChange={setNewOpen}>
         <SheetContent className="glass-strong border-white/10 overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Comprar Insumo</SheetTitle>
+            <SheetTitle>Novo Produto</SheetTitle>
             <SheetDescription>
-              Registra a compra, atualiza o estoque e gera uma despesa automática.
+              Cadastre um insumo para controlar no estoque. A Quantidade Máxima define o 100% da barra.
             </SheetDescription>
           </SheetHeader>
           <div className="space-y-4 mt-6">
             <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Nome</label>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Nome do Produto</label>
               <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Ex: Polpa de Açaí"
+                value={newForm.name}
+                onChange={(e) => setNewForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ex: Leite Condensado"
                 className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Quantidade</label>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Unidade</label>
+                <select
+                  value={newForm.unit}
+                  onChange={(e) => setNewForm((f) => ({ ...f, unit: e.target.value as Unit }))}
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  <option value="kg">kg</option>
+                  <option value="lt">L (litros)</option>
+                  <option value="un">un (unidades)</option>
+                  <option value="g">g (gramas)</option>
+                  <option value="ml">ml</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Qtd Máxima (100%)</label>
                 <input
-                  value={form.qty}
-                  onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))}
-                  placeholder="10"
+                  value={newForm.maxQty}
+                  onChange={(e) => setNewForm((f) => ({ ...f, maxQty: e.target.value }))}
+                  placeholder="Ex: 50"
                   inputMode="decimal"
                   className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">Unidade</label>
-                <select
-                  value={form.unit}
-                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value as Unit }))}
-                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                >
-                  <option value="kg">kg</option>
-                  <option value="g">g</option>
-                  <option value="lt">lt</option>
-                  <option value="ml">ml</option>
-                  <option value="un">un</option>
-                </select>
-              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Custo total da compra (R$)</label>
-              <input
-                value={form.cost}
-                onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
-                placeholder="50,00"
-                inputMode="decimal"
-                className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-              {form.qty && form.cost && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Custo unitário:{" "}
-                  <span className="text-primary font-medium">
-                    {fmt(parseFloat(form.cost.replace(",", ".")) / parseFloat(form.qty.replace(",", ".") || "1"))}
-                  </span>
-                  /{form.unit}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1.5 block">Estoque mínimo (opcional)</label>
-              <input
-                value={form.minQty}
-                onChange={(e) => setForm((f) => ({ ...f, minQty: e.target.value }))}
-                placeholder="2"
-                inputMode="decimal"
-                className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-              />
-            </div>
+            {newForm.maxQty && (
+              <p className="text-[11px] text-muted-foreground">
+                Alerta automático abaixo de{" "}
+                <span className="text-secondary font-medium">
+                  {Math.max(1, Math.round(parseFloat(newForm.maxQty.replace(",", ".") || "0") * 0.2))} {newForm.unit}
+                </span>{" "}
+                (20% do máximo)
+              </p>
+            )}
           </div>
           <SheetFooter className="mt-6">
-            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleSaveItem}>
-              <Plus className="h-4 w-4" /> Registrar Compra
+            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleNewProduct}>
+              <Plus className="h-4 w-4" /> Cadastrar Produto
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      {/* Sheet: registrar perda */}
+      {/* ============================================= */}
+      {/* Sheet: Comprar Insumo (reposição com atalhos) */}
+      {/* ============================================= */}
+      <Sheet open={buyOpen} onOpenChange={(o) => { setBuyOpen(o); if (!o) { setBuyStockId(""); setBuyQty(""); setBuyCost(""); } }}>
+        <SheetContent className="glass-strong border-white/10 overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Comprar Insumo</SheetTitle>
+            <SheetDescription>
+              Selecione o produto, informe a quantidade e o valor pago. O estoque será atualizado automaticamente.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            {/* Atalhos dinâmicos */}
+            <div>
+              <label className="text-xs text-muted-foreground mb-2 block">Selecione o Produto</label>
+              <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                {items.map((item) => {
+                  const pct = stockPercent(item);
+                  const selected = buyStockId === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setBuyStockId(item.id)}
+                      className={`p-3 rounded-xl text-left transition-all border ${
+                        selected
+                          ? "bg-primary/20 border-primary shadow-[0_0_20px_rgba(134,239,172,0.15)]"
+                          : "glass border-transparent hover:bg-white/5 active:scale-[0.97]"
+                      }`}
+                    >
+                      <p className="text-xs font-medium truncate">{item.name}</p>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+                          <div
+                            className={`h-full bg-gradient-to-r ${
+                              pct < 20 ? "from-secondary to-secondary/40" : pct >= 50 ? "from-success to-success/40" : "from-chart-4 to-chart-4/40"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-bold ${pct < 20 ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"}`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">{item.qty}/{item.maxQty}{item.unit}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {buyStockId && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 pt-2 border-t border-white/5">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Quantidade comprada</label>
+                  <input
+                    value={buyQty}
+                    onChange={(e) => setBuyQty(e.target.value)}
+                    placeholder={`Ex: 10 ${items.find((x) => x.id === buyStockId)?.unit || ""}`}
+                    inputMode="decimal"
+                    className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">Custo total (R$)</label>
+                  <input
+                    value={buyCost}
+                    onChange={(e) => setBuyCost(e.target.value)}
+                    placeholder="Ex: 50,00"
+                    inputMode="decimal"
+                    className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  {buyQty && buyCost && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Custo unitário:{" "}
+                      <span className="text-primary font-medium">
+                        {fmt(parseFloat(buyCost.replace(",", ".")) / parseFloat(buyQty.replace(",", ".") || "1"))}
+                      </span>
+                      /{items.find((x) => x.id === buyStockId)?.unit || "un"}
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleBuy} disabled={!buyStockId}>
+              <ShoppingCart className="h-4 w-4" /> Registrar Compra
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ============================================= */}
+      {/* Sheet: Registrar perda                        */}
+      {/* ============================================= */}
       <Sheet open={!!lossOpen} onOpenChange={(o) => !o && setLossOpen(null)}>
         <SheetContent className="glass-strong border-white/10">
           <SheetHeader>

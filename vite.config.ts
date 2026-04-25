@@ -6,4 +6,16 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+export default defineConfig({
+  vite: {
+    server: {
+      proxy: {
+        '/api/twilio': {
+          target: 'https://api.twilio.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/twilio/, '')
+        }
+      }
+    }
+  }
+});
