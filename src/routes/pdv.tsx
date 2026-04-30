@@ -54,13 +54,16 @@ function PDV() {
   const [saving, setSaving] = useState(false);
 
   // Buffet
-  const [pesoGrama, setPesoGrama] = useState<number | "">("");
-  const [precoKg, setPrecoKg] = useState<number>(79.90);
+  const [pesoGrama, setPesoGrama] = useState<string>("");
+  const [precoKg, setPrecoKg] = useState<string>("79.90");
 
   function addBuffetToCart() {
-    if (!pesoGrama) return;
-    const kgVendidos = Number(pesoGrama) / 1000;
-    const val = kgVendidos * precoKg;
+    const pGrama = parseFloat(pesoGrama.replace(',', '.'));
+    const pKg = parseFloat(precoKg.replace(',', '.'));
+    
+    if (isNaN(pGrama) || pGrama <= 0) return;
+    const kgVendidos = pGrama / 1000;
+    const val = kgVendidos * (isNaN(pKg) ? 0 : pKg);
     const consumedStock: { stockId: string; qty: number }[] = [];
 
     const baseSorvete = stock.find(s => s.name === "Base de Sorvete (Geral)");
@@ -90,7 +93,7 @@ function PDV() {
     }]);
     
     setPesoGrama(""); // resetar para o próximo cliente
-    toast.success(`Buffet (${pesoGrama}g) adicionado!`);
+    toast.success(`Buffet (${pGrama}g) adicionado!`);
   }
 
   // Modais
@@ -196,9 +199,10 @@ function PDV() {
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">Peso (Gramas)</label>
                     <input 
-                      type="number" 
+                      type="text" 
+                      inputMode="decimal"
                       value={pesoGrama} 
-                      onChange={(e) => setPesoGrama(parseFloat(e.target.value) || "")} 
+                      onChange={(e) => setPesoGrama(e.target.value)} 
                       placeholder="Ex: 350"
                       className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
                     />
@@ -206,16 +210,17 @@ function PDV() {
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">Preço / Kg (R$)</label>
                     <input 
-                      type="number" 
+                      type="text" 
+                      inputMode="decimal"
                       value={precoKg} 
-                      onChange={(e) => setPrecoKg(parseFloat(e.target.value) || 0)} 
+                      onChange={(e) => setPrecoKg(e.target.value)} 
                       className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
                     />
                   </div>
                   <div className="pb-1">
                     <p className="text-xs text-muted-foreground mb-0.5">Total Calculado</p>
                     <p className="text-xl font-bold text-gradient">
-                      {pesoGrama ? fmt((Number(pesoGrama) / 1000) * precoKg) : "R$ 0,00"}
+                      {pesoGrama ? fmt((parseFloat(pesoGrama.replace(',', '.')) / 1000) * parseFloat(precoKg.replace(',', '.'))) : "R$ 0,00"}
                     </p>
                   </div>
                   <Button 
