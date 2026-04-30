@@ -4,7 +4,8 @@ export default async function handler(req, res) {
   }
 
   const { subject, html } = req.body;
-  const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY;
+  // Usando a chave explícita como fallback de segurança caso não esteja configurada no painel da Vercel
+  const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY || "re_Dv7sMhWJ_KpYuzQy3BYgeySvKsJWJBywz";
   const TARGET_EMAIL = process.env.VITE_TARGET_EMAIL || process.env.TARGET_EMAIL || "cantinhodoacai982@gmail.com";
 
   if (!RESEND_API_KEY) {
