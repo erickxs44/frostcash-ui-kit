@@ -1,34 +1,43 @@
-const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
-const TARGET_EMAIL = import.meta.env.VITE_TARGET_EMAIL;
+import { createServerFn } from "@tanstack/react-start";
+
+const RESEND_API_KEY = typeof process !== 'undefined' && process.env.VITE_RESEND_API_KEY ? process.env.VITE_RESEND_API_KEY : import.meta.env.VITE_RESEND_API_KEY;
+const TARGET_EMAIL = typeof process !== 'undefined' && process.env.VITE_TARGET_EMAIL ? process.env.VITE_TARGET_EMAIL : import.meta.env.VITE_TARGET_EMAIL;
 const FROM_EMAIL = "FrostCash <onboarding@resend.dev>";
 
-export async function sendEmail(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log("Enviando email para:", TARGET_EMAIL);
-    const response = await fetch("https://corsproxy.io/?https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [TARGET_EMAIL || "cantinhodoacai982@gmail.com"],
-        subject,
-        html
-      })
-    });
-    
-    if (!response.ok) {
-      const data = await response.json();
-      console.error("Erro no Resend:", data);
-      return { success: false, error: data.message || "Erro desconhecido da API do Resend." };
+export const sendEmailFn = createServerFn({ method: "POST" })
+  .validator((data: { subject: string; html: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      console.log("Enviando email (Server Side) para:", TARGET_EMAIL);
+      // Removido o corsproxy.io pois agora isso roda no lado do servidor (seguro)
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: FROM_EMAIL,
+          to: [TARGET_EMAIL || "cantinhodoacai982@gmail.com"],
+          subject: data.subject,
+          html: data.html
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Erro no Resend (Server Side):", errorData);
+        return { success: false, error: errorData.message || "Erro desconhecido da API do Resend." };
+      }
+      return { success: true };
+    } catch (error: any) {
+      console.error("Falha ao enviar e-mail (Server Side):", error);
+      return { success: false, error: error.message || "Falha de rede no servidor." };
     }
-    return { success: true };
-  } catch (error: any) {
-    console.error("Falha ao enviar e-mail:", error);
-    return { success: false, error: error.message || "Falha de rede (CORS ou sem internet)." };
-  }
+  });
+
+export async function sendEmail(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
+  return await sendEmailFn({ data: { subject, html } });
 }
 
 export async function sendCloseRegisterReport(stats: {
