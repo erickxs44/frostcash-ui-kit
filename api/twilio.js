@@ -4,10 +4,12 @@ export default async function handler(req, res) {
   }
 
   const { body } = req.body;
+  // Fallbacks de segurança para Vercel (chaves devem ser configuradas no painel da Vercel)
   const TWILIO_SID = process.env.VITE_TWILIO_SID || process.env.TWILIO_SID;
   const TWILIO_AUTH_TOKEN = process.env.VITE_TWILIO_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN;
-  const TWILIO_FROM = process.env.VITE_TWILIO_FROM || process.env.TWILIO_FROM;
-  const TWILIO_TO = process.env.VITE_TWILIO_TO || process.env.TWILIO_TO;
+  // O número 'From' do Twilio para WhatsApp geralmente é +14155238886
+  const TWILIO_FROM = process.env.VITE_TWILIO_FROM || process.env.TWILIO_FROM || "whatsapp:+14155238886";
+  const TWILIO_TO = process.env.VITE_TWILIO_TO || process.env.TWILIO_TO || "whatsapp:+5583999187509";
 
   if (!TWILIO_SID || !TWILIO_AUTH_TOKEN) {
     return res.status(500).json({ success: false, error: 'Chaves do Twilio não configuradas na Vercel.' });
