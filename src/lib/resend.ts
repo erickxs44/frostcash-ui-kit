@@ -1,43 +1,50 @@
-import { createServerFn } from "@tanstack/react-start";
-
-const RESEND_API_KEY = typeof process !== 'undefined' && process.env.VITE_RESEND_API_KEY ? process.env.VITE_RESEND_API_KEY : import.meta.env.VITE_RESEND_API_KEY;
-const TARGET_EMAIL = typeof process !== 'undefined' && process.env.VITE_TARGET_EMAIL ? process.env.VITE_TARGET_EMAIL : import.meta.env.VITE_TARGET_EMAIL;
-const FROM_EMAIL = "FrostCash <onboarding@resend.dev>";
-
-export const sendEmailFn = createServerFn({ method: "POST" })
-  .validator((data: { subject: string; html: string }) => data)
-  .handler(async ({ data }) => {
-    try {
-      console.log("Enviando email (Server Side) para:", TARGET_EMAIL);
-      // Removido o corsproxy.io pois agora isso roda no lado do servidor (seguro)
-      const response = await fetch("https://api.resend.com/emails", {
+export async function sendEmail(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (isLocalhost) {
+      // Local dev fallback using corsproxy.io (if running without Vercel CLI)
+      const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
+      const TARGET_EMAIL = import.meta.env.VITE_TARGET_EMAIL;
+      
+      const response = await fetch("https://corsproxy.io/?https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${RESEND_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          from: FROM_EMAIL,
+          from: "FrostCash <onboarding@resend.dev>",
           to: [TARGET_EMAIL || "cantinhodoacai982@gmail.com"],
-          subject: data.subject,
-          html: data.html
+          subject,
+          html
         })
       });
-      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Erro no Resend (Server Side):", errorData);
-        return { success: false, error: errorData.message || "Erro desconhecido da API do Resend." };
+        const data = await response.json();
+        return { success: false, error: data.message };
       }
       return { success: true };
-    } catch (error: any) {
-      console.error("Falha ao enviar e-mail (Server Side):", error);
-      return { success: false, error: error.message || "Falha de rede no servidor." };
     }
-  });
 
-export async function sendEmail(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
-  return await sendEmailFn({ data: { subject, html } });
+    // Produção na Vercel (chama a Serverless Function nativa na pasta /api)
+    const response = await fetch("/api/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, html })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      console.error("Erro no Vercel API:", data);
+      return { success: false, error: data.error || "Erro na API do servidor." };
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Falha ao enviar e-mail:", error);
+    return { success: false, error: error.message || "Falha de rede." };
+  }
 }
 
 export async function sendCloseRegisterReport(stats: {
