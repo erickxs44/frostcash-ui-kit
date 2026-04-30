@@ -8,7 +8,11 @@ export default async function handler(req, res) {
   const RESEND_API_KEY = process.env.VITE_RESEND_API_KEY || process.env.RESEND_API_KEY || "re_Dv7sMhWJ_KpYuzQy3BYgeySvKsJWJBywz";
   const TARGET_EMAIL = process.env.VITE_TARGET_EMAIL || process.env.TARGET_EMAIL || "cantinhodoacai982@gmail.com";
 
+  console.log("Tentando enviar e-mail para:", TARGET_EMAIL);
+  console.log("Assunto:", subject);
+
   if (!RESEND_API_KEY) {
+    console.error("ERRO: Resend API Key não encontrada!");
     return res.status(500).json({ success: false, error: 'API Key do Resend não configurada na Vercel.' });
   }
 
