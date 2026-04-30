@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
-import { Product, ProductIngredient, registerSale, useStore, addProduct, removeProduct, updateProduct, StockItem } from "@/lib/store";
+import { Product, ProductIngredient, registerSale, useStore, addProduct, removeProduct, updateProduct, StockItem, updateBuffetRecipe } from "@/lib/store";
 
 export const Route = createFileRoute("/pdv")({
   head: () => ({ meta: [{ title: "PDV — FrostCash" }] }),
@@ -38,6 +38,7 @@ function getCategoryColor(cat: string) {
 function PDV() {
   const products = useStore((s) => s.products);
   const stock = useStore((s) => s.stock);
+  const buffetRecipe = useStore((s) => s.buffetRecipe || []);
 
   // Deriva categorias únicas
   const categories = useMemo(() => Array.from(new Set(products.map((p) => p.category))), [products]);
@@ -58,9 +59,26 @@ function PDV() {
 
   function addBuffetToCart() {
     if (!pesoGrama) return;
-    const val = (Number(pesoGrama) / 1000) * precoKg;
+    const kgVendidos = Number(pesoGrama) / 1000;
+    const val = kgVendidos * precoKg;
+    const consumedStock: { stockId: string; qty: number }[] = [];
+
     const baseSorvete = stock.find(s => s.name === "Base de Sorvete (Geral)");
-    const consumedStock = baseSorvete ? [{ stockId: baseSorvete.id, qty: Number(pesoGrama) / 1000 }] : [];
+    if (baseSorvete) {
+      // Se baseSorvete.unit for "g", abate em gramas. Se for "kg", abate em quilos.
+      const qtyToAbate = baseSorvete.unit === "g" ? Number(pesoGrama) : kgVendidos;
+      consumedStock.push({ stockId: baseSorvete.id, qty: qtyToAbate });
+    }
+
+    // Abater adicionais da Ficha Técnica do Buffet
+    for (const r of buffetRecipe) {
+      const st = stock.find(s => s.id === r.stockId);
+      if (st) {
+        // qtyPerKg is defined in the base unit of the stock item per kg sold
+        const qtyToAbate = kgVendidos * r.qtyPerKg;
+        consumedStock.push({ stockId: r.stockId, qty: qtyToAbate });
+      }
+    }
 
     setCart(c => [...c, {
       id: Math.random().toString(),
@@ -236,16 +254,17 @@ function PDV() {
                 {visible.map((p) => (
                   <motion.button
                     key={p.id}
-                    whileHover={{ y: -3 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => openCustomization(p)}
-                    className="glass rounded-2xl p-4 text-left hover:shadow-glow transition-shadow relative overflow-hidden"
+                    className="glass rounded-2xl p-5 text-left hover:shadow-glow transition-all relative overflow-hidden group"
                   >
-                    <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${getCategoryColor(p.category)} flex items-center justify-center mb-3 shadow-md`}>
-                      <IceCream className="h-6 w-6" />
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-500 from-transparent via-primary/50 to-transparent" />
+                    <div className={`h-14 w-14 rounded-xl bg-gradient-to-br ${getCategoryColor(p.category)} flex items-center justify-center mb-4 shadow-lg shadow-black/10`}>
+                      <IceCream className="h-6 w-6 drop-shadow-md" />
                     </div>
-                    <p className="font-semibold text-sm leading-tight">{p.name}</p>
-                    <p className="text-xs font-medium text-muted-foreground mt-1">{fmt(p.price)}</p>
+                    <p className="font-semibold text-[15px] leading-tight text-foreground">{p.name}</p>
+                    <p className="text-sm font-bold text-muted-foreground mt-1.5">{fmt(p.price)}</p>
                   </motion.button>
                 ))}
               </div>
@@ -384,6 +403,7 @@ function PDV() {
           onClose={() => setShowConfig(false)} 
           products={products}
           stock={stock}
+          buffetRecipe={buffetRecipe}
         />
       </div>
     </AppLayout>
@@ -523,18 +543,29 @@ function ItemCustomizationModal({ product, stock, onClose, onAdd }: {
 // ============================================================================
 // Modal: Configuração do Cardápio
 // ============================================================================
-function MenuConfigurationModal({ isOpen, onClose, products, stock }: { 
+function MenuConfigurationModal({ isOpen, onClose, products, stock, buffetRecipe }: { 
   isOpen: boolean; 
   onClose: () => void; 
   products: Product[];
   stock: StockItem[];
+  buffetRecipe: { stockId: string; qtyPerKg: number }[];
 }) {
+  const [activeTab, setActiveTab] = useState<"produtos" | "buffet">("produtos");
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Açaí");
   const [price, setPrice] = useState("");
   const [ingredients, setIngredients] = useState<ProductIngredient[]>([]);
+
+  // Buffet state
+  const [buffetIngs, setBuffetIngs] = useState<{stockId: string, qtyPerKg: number}[]>(buffetRecipe);
+
+  useMemo(() => {
+    if (isOpen) {
+      setBuffetIngs(buffetRecipe);
+    }
+  }, [isOpen, buffetRecipe]);
 
   if (!isOpen) return null;
 
@@ -586,6 +617,26 @@ function MenuConfigurationModal({ isOpen, onClose, products, stock }: {
     resetForm();
   }
 
+  function saveBuffet() {
+    updateBuffetRecipe(buffetIngs);
+    toast.success("Ficha Técnica do Buffet atualizada!");
+  }
+
+  function toggleBuffetIngredient(stockId: string) {
+    setBuffetIngs(prev => {
+      const exists = prev.find(i => i.stockId === stockId);
+      if (exists) return prev.filter(i => i.stockId !== stockId);
+      
+      const st = stock.find(s => s.id === stockId);
+      const defaultQ = (st?.unit === 'kg' || st?.unit === 'lt') ? 0.1 : 50;
+      return [...prev, { stockId, qtyPerKg: defaultQ }];
+    });
+  }
+
+  function updateBuffetIngQty(stockId: string, qty: number) {
+    setBuffetIngs(prev => prev.map(i => i.stockId === stockId ? { ...i, qtyPerKg: qty } : i));
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
       <motion.div
@@ -594,16 +645,34 @@ function MenuConfigurationModal({ isOpen, onClose, products, stock }: {
         exit={{ opacity: 0, scale: 0.95 }}
         className="glass w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90vh]"
       >
-        <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
-          <h2 className="font-semibold text-lg">Configuração de Cardápio</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition">
-            <X className="h-5 w-5" />
-          </button>
+        <div className="p-4 border-b border-white/5 flex flex-col gap-4 bg-white/5">
+          <div className="flex justify-between items-center">
+            <h2 className="font-semibold text-lg">Configuração de Cardápio</h2>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab("produtos")}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${activeTab === "produtos" ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:bg-white/10"}`}
+            >
+              Produtos
+            </button>
+            <button
+              onClick={() => setActiveTab("buffet")}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${activeTab === "buffet" ? "bg-primary text-primary-foreground" : "glass text-muted-foreground hover:bg-white/10"}`}
+            >
+              Ficha Técnica do Buffet
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[500px]">
-          {/* Lado Esquerdo: Lista de Produtos */}
-          <div className="w-full md:w-5/12 border-r border-white/5 overflow-y-auto p-4 space-y-2 bg-black/10">
+          {activeTab === "produtos" ? (
+            <>
+              {/* Lado Esquerdo: Lista de Produtos */}
+              <div className="w-full md:w-5/12 border-r border-white/5 overflow-y-auto p-4 space-y-2 bg-black/10">
             <Button variant="outline" className="w-full mb-4" onClick={resetForm}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Produto
@@ -737,6 +806,58 @@ function MenuConfigurationModal({ isOpen, onClose, products, stock }: {
               </div>
             </div>
           </div>
+          </>
+          ) : (
+            <div className="w-full p-6 overflow-y-auto bg-white/[0.01]">
+              <h3 className="font-medium mb-2 text-gradient flex items-center">
+                <Scale className="w-4 h-4 mr-2" /> Receita do Buffet (Venda por Peso)
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Defina o que será abatido do estoque automaticamente para cada <b>1kg</b> de sorvete vendido no Buffet. (A Base Geral de Sorvete já é abatida proporcionalmente ao peso vendido).
+              </p>
+
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {stock.filter(s => s.name !== "Base de Sorvete (Geral)").map(st => {
+                  const ing = buffetIngs.find(i => i.stockId === st.id);
+                  const isSelected = !!ing;
+                  
+                  return (
+                    <div key={st.id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${isSelected ? 'glass border-primary/50 bg-primary/5' : 'bg-black/20 border-white/5 hover:border-white/10'}`}>
+                      <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => toggleBuffetIngredient(st.id)}>
+                        <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'bg-primary border-primary' : 'bg-black/40 border-white/20'}`}>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium">{st.name}</span>
+                          <p className="text-[10px] text-muted-foreground">Estoque: {st.qty} {st.unit}</p>
+                        </div>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Gasto a cada 1kg ({st.unit})</span>
+                          <input 
+                            type="number" 
+                            step="any"
+                            value={ing.qtyPerKg} 
+                            onChange={(e) => updateBuffetIngQty(st.id, parseFloat(e.target.value) || 0)}
+                            className="w-20 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-6 mt-4 border-t border-white/5">
+                <Button variant="gradient" className="w-full md:w-auto" onClick={saveBuffet}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Ficha Técnica do Buffet
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </div>

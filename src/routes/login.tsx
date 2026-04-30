@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Snowflake, Loader2 } from "lucide-react";
+import { reloadStore } from "@/lib/store";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -27,9 +28,10 @@ function LoginPage() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      // Demo: aceita qualquer email com senha "frost123"
-      if (password === "frost123") {
-        sessionStorage.setItem("frostcash:auth", "1");
+      // Aceita login usando a senha frost123
+      if (password === "frost123" && email.trim() !== "") {
+        sessionStorage.setItem("frostcash:auth", email.toLowerCase().trim());
+        reloadStore();
         navigate({ to: "/" });
       } else {
         setError(true);

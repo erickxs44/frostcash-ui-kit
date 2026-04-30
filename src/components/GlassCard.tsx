@@ -7,7 +7,7 @@ export function GlassCard({ className, hover = true, children, ...props }: Props
   return (
     <motion.div
       whileHover={hover ? { y: -4, transition: { duration: 0.2 } } : undefined}
-      className={cn("glass rounded-2xl p-5 transition-shadow hover:shadow-glow", className)}
+      className={cn("glass rounded-2xl p-6 transition-shadow hover:shadow-glow", className)}
       {...props}
     >
       {children}

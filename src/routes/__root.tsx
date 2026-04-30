@@ -1,4 +1,4 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute, HeadContent, Scripts, redirect } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
@@ -29,6 +29,17 @@ function NotFoundComponent() {
 }
 
 export const Route = createRootRoute({
+  beforeLoad: ({ location }) => {
+    if (typeof window !== "undefined") {
+      const auth = sessionStorage.getItem("frostcash:auth");
+      if (!auth && location.pathname !== "/login") {
+        throw redirect({ to: "/login" });
+      }
+      if (auth && location.pathname === "/login") {
+        throw redirect({ to: "/" });
+      }
+    }
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

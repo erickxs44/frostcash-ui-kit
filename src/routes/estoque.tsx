@@ -37,7 +37,7 @@ function Estoque() {
 
   // Sheet: cadastrar novo produto
   const [newOpen, setNewOpen] = useState(false);
-  const [newForm, setNewForm] = useState({ name: "", unit: "kg" as Unit, maxQty: "" });
+  const [newForm, setNewForm] = useState({ name: "", unit: "kg" as Unit, maxQty: "", minQty: "" });
 
   // Sheet: comprar insumo (reposição)
   const [buyOpen, setBuyOpen] = useState(false);
@@ -50,7 +50,11 @@ function Estoque() {
   const [lossQty, setLossQty] = useState("");
   const [lossReason, setLossReason] = useState("");
 
-  const lowStock = items.filter((i) => stockPercent(i) < 20).length;
+  // Modal: editar
+  const [editOpen, setEditOpen] = useState<StockItem | null>(null);
+  const [editMinQty, setEditMinQty] = useState("");
+
+  const lowStock = items.filter((i) => i.qty <= i.minQty).length;
   const valor = stockValue(items);
 
   // --- Handlers ---
@@ -69,10 +73,11 @@ function Estoque() {
       toast.error("Esse produto já existe no estoque.");
       return;
     }
-    registerNewStockItem({ name: newForm.name.trim(), unit: newForm.unit, maxQty });
+    const minQty = newForm.minQty ? parseFloat(newForm.minQty.replace(",", ".")) : undefined;
+    registerNewStockItem({ name: newForm.name.trim(), unit: newForm.unit, maxQty, minQty });
     toast.success("Produto cadastrado!", { description: `${newForm.name} · máx ${maxQty}${newForm.unit}` });
     setNewOpen(false);
-    setNewForm({ name: "", unit: "kg", maxQty: "" });
+    setNewForm({ name: "", unit: "kg", maxQty: "", minQty: "" });
   }
 
   function handleBuy() {
@@ -114,6 +119,19 @@ function Estoque() {
     setLossOpen(null);
     setLossQty("");
     setLossReason("");
+  }
+
+  function handleSaveEdit() {
+    if (!editOpen) return;
+    import("@/lib/store").then(m => {
+      const parsedMin = parseFloat(editMinQty.replace(",", "."));
+      if (!isNaN(parsedMin)) {
+        m.updateStockItem(editOpen.id, { minQty: parsedMin });
+        toast.success("Item atualizado com sucesso!");
+      }
+      setEditOpen(null);
+      setEditMinQty("");
+    });
   }
 
   return (
@@ -172,7 +190,7 @@ function Estoque() {
         <div className="grid sm:grid-cols-2 gap-3">
           {items.map((item, i) => {
             const pct = stockPercent(item);
-            const color = pct < 20
+            const color = item.qty <= item.minQty
               ? "from-secondary to-secondary/40"
               : pct >= 50
                 ? "from-success to-success/40"
@@ -187,7 +205,12 @@ function Estoque() {
                 <GlassCard>
                   <div className="flex justify-between items-start mb-3">
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{item.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{item.name}</p>
+                        <button onClick={() => { setEditOpen(item); setEditMinQty(item.minQty.toString()); }} className="text-muted-foreground hover:text-primary transition">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {item.qty.toFixed(item.unit === "un" ? 0 : 2)} / {item.maxQty} {item.unit}
                       </p>
@@ -199,7 +222,7 @@ function Estoque() {
                     </div>
                     <span
                       className={`text-sm font-bold ${
-                        pct < 20 ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"
+                        item.qty <= item.minQty ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"
                       }`}
                     >
                       {pct}%
@@ -215,7 +238,7 @@ function Estoque() {
                     />
                   </div>
                   <div className="flex items-center justify-between mt-3">
-                    {pct < 20 ? (
+                    {item.qty <= item.minQty ? (
                       <p className="text-xs text-secondary flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3" /> Crítico!
                       </p>
@@ -306,8 +329,18 @@ function Estoque() {
                   className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Peso Mínimo (Alerta)</label>
+                <input
+                  value={newForm.minQty}
+                  onChange={(e) => setNewForm((f) => ({ ...f, minQty: e.target.value }))}
+                  placeholder="Opcional (ex: 5)"
+                  inputMode="decimal"
+                  className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
             </div>
-            {newForm.maxQty && (
+            {newForm.maxQty && !newForm.minQty && (
               <p className="text-[11px] text-muted-foreground">
                 Alerta automático abaixo de{" "}
                 <span className="text-secondary font-medium">
@@ -359,12 +392,12 @@ function Estoque() {
                         <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
                           <div
                             className={`h-full bg-gradient-to-r ${
-                              pct < 20 ? "from-secondary to-secondary/40" : pct >= 50 ? "from-success to-success/40" : "from-chart-4 to-chart-4/40"
+                              item.qty <= item.minQty ? "from-secondary to-secondary/40" : pct >= 50 ? "from-success to-success/40" : "from-chart-4 to-chart-4/40"
                             }`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className={`text-[10px] font-bold ${pct < 20 ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"}`}>
+                        <span className={`text-[10px] font-bold ${item.qty <= item.minQty ? "text-secondary" : pct >= 50 ? "text-success" : "text-chart-4"}`}>
                           {pct}%
                         </span>
                       </div>
@@ -460,6 +493,35 @@ function Estoque() {
           <SheetFooter className="mt-6">
             <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleSaveLoss}>
               <TrendingDown className="h-4 w-4" /> Confirmar Perda
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* ============================================= */}
+      {/* Sheet: Editar Item                            */}
+      {/* ============================================= */}
+      <Sheet open={!!editOpen} onOpenChange={(o) => !o && setEditOpen(null)}>
+        <SheetContent className="glass-strong border-white/10">
+          <SheetHeader>
+            <SheetTitle>Editar {editOpen?.name}</SheetTitle>
+            <SheetDescription>Altere as configurações do insumo.</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1.5 block">Peso Mínimo para Alerta ({editOpen?.unit})</label>
+              <input
+                value={editMinQty}
+                onChange={(e) => setEditMinQty(e.target.value)}
+                placeholder="Ex: 5"
+                inputMode="decimal"
+                className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+            </div>
+          </div>
+          <SheetFooter className="mt-6">
+            <Button variant="gradient" size="lg" className="w-full rounded-xl" onClick={handleSaveEdit}>
+              Salvar Alterações
             </Button>
           </SheetFooter>
         </SheetContent>

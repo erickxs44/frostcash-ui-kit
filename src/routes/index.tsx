@@ -28,15 +28,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { calculateBalance, calculateProfit, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: () => {
-    if (typeof window !== "undefined" && !sessionStorage.getItem("frostcash:auth")) {
-      throw redirect({ to: "/login" });
-    }
-  },
   head: () => ({
     meta: [
       { title: "Dashboard — FrostCash" },
@@ -53,6 +48,7 @@ function Dashboard() {
   const transactions = useStore((s) => s.transactions);
   const stock = useStore((s) => s.stock);
   const [isClosing, setIsClosing] = useState(false);
+  const [range, setRange] = useState<1 | 7 | 30>(1);
 
   const today = new Date().toDateString();
   const todaysTx = transactions.filter((t) => new Date(t.date).toDateString() === today);
@@ -66,17 +62,52 @@ function Dashboard() {
     .filter((t) => t.kind === "sale")
     .reduce((s, t) => s + (t.items?.reduce((a, i) => a + i.qty, 0) ?? 0), 0);
 
-  // Faturamento últimos 7 dias
-  const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const chartData = Array.from({ length: 7 }).map((_, idx) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - idx));
-    const key = d.toDateString();
-    const v = transactions
-      .filter((t) => t.kind === "sale" && new Date(t.date).toDateString() === key)
-      .reduce((s, t) => s + t.amount, 0);
-    return { day: days[d.getDay()], v };
-  });
+  // Movimentação (Tendência Consolidada)
+  const chartData = useMemo(() => {
+    if (range === 1) {
+      const sorted = [...todaysTx].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      let acc = 0;
+      const points = sorted.map(t => {
+        acc += t.amount;
+        return {
+          label: new Date(t.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }),
+          v: acc,
+          type: t.amount >= 0 ? "Venda" : "Despesa",
+          delta: t.amount
+        };
+      });
+      if (points.length === 0) {
+        return [
+          { label: "Abertura", v: 0, type: "Início", delta: 0 },
+          { label: new Date().toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }), v: 0, type: "Atual", delta: 0 }
+        ];
+      }
+      return [{ label: "Abertura", v: 0, type: "Início", delta: 0 }, ...points];
+    } else {
+      let acc = 0;
+      return Array.from({ length: range }).map((_, idx) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (range - 1 - idx));
+        
+        const key = d.toDateString();
+        const dayTxs = transactions.filter((t) => new Date(t.date).toDateString() === key);
+        
+        const dayNet = dayTxs.reduce((s, t) => s + t.amount, 0);
+        acc += dayNet;
+        
+        const label = range === 7 
+          ? ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][d.getDay()]
+          : d.toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' });
+        
+        return { 
+          label, 
+          v: acc,
+          type: dayNet >= 0 ? "Lucro" : "Prejuízo",
+          delta: dayNet
+        };
+      });
+    }
+  }, [range, todaysTx, transactions]);
 
   // Top produtos (todas as vendas)
   const productCount: Record<string, number> = {};
@@ -193,6 +224,28 @@ function Dashboard() {
     }
   };
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="glass p-3 rounded-xl border border-white/10 shadow-xl backdrop-blur-xl">
+          <p className="text-xs text-muted-foreground font-medium mb-1">{data.label}</p>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <span className="text-sm font-semibold">{data.type}</span>
+            <span className={`text-sm font-bold ${data.delta >= 0 ? 'text-success' : 'text-secondary'}`}>
+              {data.delta > 0 ? '+' : ''}{fmt(data.delta)}
+            </span>
+          </div>
+          <div className="pt-2 border-t border-white/10 flex justify-between gap-4 mt-2">
+            <span className="text-xs text-muted-foreground">Saldo Acumulado</span>
+            <span className="text-xs font-bold text-primary">{fmt(data.v)}</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -238,9 +291,9 @@ function Dashboard() {
               transition={{ delay: i * 0.06 }}
             >
               <GlassCard className={`bg-gradient-to-br ${s.accent} relative overflow-hidden`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="h-9 w-9 rounded-lg glass flex items-center justify-center">
-                    <s.icon className="h-4 w-4 text-primary" />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-11 w-11 rounded-xl glass flex items-center justify-center shadow-sm">
+                    <s.icon className="h-5 w-5 text-primary" />
                   </div>
                   <span
                     className={`text-[10px] font-medium flex items-center gap-0.5 ${
@@ -261,15 +314,21 @@ function Dashboard() {
         <GlassCard hover={false}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-semibold text-lg">Faturamento da Semana</h2>
-              <p className="text-xs text-muted-foreground">Vendas diárias em R$</p>
+              <h2 className="font-semibold text-lg text-gradient">Tendência de Crescimento</h2>
+              <p className="text-xs text-muted-foreground">Lucro Acumulado do período</p>
             </div>
             <div className="flex gap-1 glass rounded-lg p-1 text-xs">
-              <button className="px-3 py-1 rounded-md bg-gradient-primary text-primary-foreground font-medium">
-                7d
-              </button>
-              <button className="px-3 py-1 rounded-md text-muted-foreground">30d</button>
-              <button className="px-3 py-1 rounded-md text-muted-foreground">90d</button>
+              {[1, 7, 30].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setRange(d as any)}
+                  className={`px-3 py-1 rounded-md transition-all font-medium ${
+                    range === d ? "bg-gradient-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {d === 1 ? 'Hoje' : `${d}d`}
+                </button>
+              ))}
             </div>
           </div>
           <div className="h-64">
@@ -277,24 +336,40 @@ function Dashboard() {
               <AreaChart data={chartData} margin={{ left: -20, right: 8, top: 8, bottom: 0 }}>
                 <defs>
                   <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="oklch(0.86 0.09 185)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="oklch(0.86 0.09 185)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 6%)" />
-                <XAxis dataKey="day" stroke="oklch(0.72 0.02 250)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="oklch(0.72 0.02 250)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(0.22 0.03 250 / 90%)",
-                    border: "1px solid oklch(1 0 0 / 10%)",
-                    borderRadius: 12,
-                    backdropFilter: "blur(10px)",
-                  }}
-                  labelStyle={{ color: "oklch(0.97 0.01 240)" }}
-                  formatter={(v) => fmt(Number(v))}
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 6%)" vertical={false} />
+                <XAxis 
+                  dataKey="label" 
+                  stroke="oklch(0.72 0.02 250)" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  dy={10}
                 />
-                <Area type="monotone" dataKey="v" stroke="oklch(0.86 0.09 185)" strokeWidth={2.5} fill="url(#g1)" />
+                <YAxis 
+                  stroke="oklch(0.72 0.02 250)" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(v) => `R$ ${v}`}
+                  domain={['auto', 'auto']}
+                  padding={{ top: 30, bottom: 30 }}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'oklch(1 0 0 / 10%)', strokeWidth: 1 }} />
+                <Area 
+                  type="monotone" 
+                  dataKey="v" 
+                  stroke="var(--primary)" 
+                  strokeWidth={3.5} 
+                  fill="url(#g1)"
+                  animationDuration={1500}
+                  connectNulls={true}
+                  dot={{ r: 4, strokeWidth: 2, fill: 'var(--background)', stroke: 'var(--primary)' }}
+                  activeDot={{ r: 6, strokeWidth: 0, fill: 'var(--primary)' }}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>

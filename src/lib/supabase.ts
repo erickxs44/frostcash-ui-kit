@@ -57,6 +57,13 @@ export interface VendaRow {
   lucro_estimado: number;
 }
 
+export interface PerfilRow {
+  user_id: string;
+  nome_loja: string;
+  endereco: string;
+  telefone: string;
+}
+
 // ---- Helpers genéricos ----
 
 async function supabasePost<T>(table: string, data: T): Promise<T | null> {
@@ -114,4 +121,34 @@ export async function insertEstoque(row: EstoqueRow): Promise<EstoqueRow | null>
 
 export async function getEstoque(): Promise<EstoqueRow[]> {
   return supabaseGet<EstoqueRow>("estoque", "order=nome_produto.asc");
+}
+
+// ---- Perfil ----
+export async function upsertPerfil(user_id: string, profile: { name: string; address: string; phone: string }) {
+  try {
+    const data: PerfilRow = {
+      user_id,
+      nome_loja: profile.name,
+      endereco: profile.address,
+      telefone: profile.phone
+    };
+    // Tenta atualizar se existir
+    const url = `${SUPABASE_URL}/perfil_loja?user_id=eq.${encodeURIComponent(user_id)}`;
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (res.ok) {
+      // Verifica se realmente alterou, senao faz POST
+      const text = await res.text();
+      if (!text || text === "[]") {
+        await supabasePost("perfil_loja", data);
+      }
+    } else {
+      await supabasePost("perfil_loja", data);
+    }
+  } catch (err) {
+    console.warn("Falha ao salvar perfil no supabase", err);
+  }
 }

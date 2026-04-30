@@ -4,6 +4,7 @@ const FROM_EMAIL = "FrostCash <onboarding@resend.dev>";
 
 export async function sendEmail(subject: string, html: string): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log("Enviando email para:", TARGET_EMAIL);
     const response = await fetch("https://corsproxy.io/?https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -12,7 +13,7 @@ export async function sendEmail(subject: string, html: string): Promise<{ succes
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
-        to: [TARGET_EMAIL],
+        to: [TARGET_EMAIL || "cantinhodoacai982@gmail.com"],
         subject,
         html
       })

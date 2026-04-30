@@ -48,10 +48,18 @@ export interface Transaction {
   payment?: "Dinheiro" | "Cartão" | "PIX";
 }
 
+interface Profile {
+  name: string;
+  address: string;
+  phone: string;
+}
+
 interface State {
+  profile: Profile;
   stock: StockItem[];
   products: Product[];
   transactions: Transaction[];
+  buffetRecipe?: { stockId: string; qtyPerKg: number }[];
 }
 
 // ----- Seed inicial -----
@@ -71,18 +79,22 @@ const seedStock: StockItem[] = [
 
 const seedProducts: Product[] = [];
 
-const STORAGE_KEY = "frostcash:state:v2";
+const getUserId = () => {
+  if (typeof window === "undefined") return "guest";
+  return sessionStorage.getItem("frostcash:auth") || "guest";
+};
+
+const getStorageKey = () => `frostcash:state:v3:${getUserId()}`;
 
 function loadState(): State {
   if (typeof window === "undefined") {
-    return { stock: seedStock, products: seedProducts, transactions: [] };
+    return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [] };
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(getStorageKey());
     if (raw) {
       const parsed = JSON.parse(raw) as State;
       
-      // Garante que a Base de Sorvete Geral exista para o Buffet
       if (parsed.stock) {
         const hasBase = parsed.stock.some(s => s.name === "Base de Sorvete (Geral)");
         if (!hasBase) {
@@ -100,6 +112,10 @@ function loadState(): State {
         }
       }
 
+      if (!parsed.buffetRecipe) {
+        parsed.buffetRecipe = [];
+      }
+
       if (parsed.products) {
         const oldSeedIds = ["p_casq", "p_sundae", "p_1bola", "p_2bolas", "p_split", "p_milk", "p_pic_f", "p_pic_c", "p_pic_p", "p_acai500", "p_refri", "p_agua", "p_suco", "p_calda", "p_gran", "p_cob"];
         parsed.products = parsed.products
@@ -109,12 +125,15 @@ function loadState(): State {
             ingredients: p.ingredients || (p as any).recipe?.map((r: any) => ({ stockId: r.stockId, defaultQty: r.qty })) || []
           }));
       }
+      if (!parsed.profile) {
+        parsed.profile = { name: "Minha Sorveteria", address: "", phone: "" };
+      }
       return parsed;
     }
   } catch {
     /* ignore */
   }
-  return { stock: seedStock, products: seedProducts, transactions: [] };
+  return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [], buffetRecipe: [] };
 }
 
 let state: State = loadState();
@@ -123,7 +142,7 @@ const listeners = new Set<() => void>();
 function persist() {
   if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(getStorageKey(), JSON.stringify(state));
     } catch {
       /* ignore */
     }
@@ -138,6 +157,16 @@ function emit() {
 function setState(updater: (s: State) => State) {
   state = updater(state);
   emit();
+}
+
+export function resetData() {
+  setState(() => ({ 
+    profile: { name: "Minha Sorveteria", address: "", phone: "" }, 
+    stock: seedStock, 
+    products: seedProducts, 
+    transactions: [], 
+    buffetRecipe: [] 
+  }));
 }
 
 // ============================================================
@@ -230,7 +259,7 @@ export function registerSale(
         const idx = newStock.findIndex((x) => x.id === r.stockId);
         if (idx >= 0) {
           const item = newStock[idx];
-          const threshold = item.maxQty * 0.2;
+          const threshold = item.minQty; // Mudança: usar Peso Mínimo configurado
           const wasAbove = item.qty > threshold;
           
           item.qty = Math.max(0, item.qty - r.qty * it.qty);
@@ -380,6 +409,7 @@ export function registerNewStockItem(input: {
   name: string;
   unit: Unit;
   maxQty: number;
+  minQty?: number;
   initialQty?: number;
 }) {
   setState((s) => {
@@ -390,7 +420,7 @@ export function registerNewStockItem(input: {
       name: input.name,
       qty: input.initialQty ?? 0,
       unit: input.unit,
-      minQty: Math.max(1, Math.round(input.maxQty * 0.2)),
+      minQty: input.minQty ?? Math.max(1, Math.round(input.maxQty * 0.2)),
       maxQty: input.maxQty,
       costPerUnit: 0,
       totalSpent: 0,
@@ -429,8 +459,37 @@ export function removeProduct(id: string) {
   }));
 }
 
+export function updateStockItem(id: string, updates: Partial<StockItem>) {
+  setState((s) => {
+    const newStock = s.stock.map(item => item.id === id ? { ...item, ...updates } : item);
+    const updatedItem = newStock.find(item => item.id === id);
+    if (updatedItem) syncEstoque(updatedItem);
+    return { ...s, stock: newStock };
+  });
+}
+
+export function updateBuffetRecipe(recipe: { stockId: string; qtyPerKg: number }[]) {
+  setState((s) => ({
+    ...s,
+    buffetRecipe: recipe
+  }));
+}
+
+export function updateProfile(profile: Profile) {
+  setState((s) => {
+    // 🔄 Sync: Supabase
+    import("./supabase").then((m) => m.upsertPerfil(getUserId(), profile));
+    return { ...s, profile };
+  });
+}
+
+export function reloadStore() {
+  state = loadState();
+  emit();
+}
+
 // Reset (debug)
 export function resetStore() {
-  state = { stock: seedStock, products: seedProducts, transactions: [] };
+  state = { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [], buffetRecipe: [] };
   emit();
 }
