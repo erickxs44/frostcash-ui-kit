@@ -1,6 +1,6 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts, redirect } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute, HeadContent, Scripts, redirect, useRouter, useLocation, useNavigate } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { SplashScreen } from "@/components/SplashScreen";
 
@@ -83,6 +83,31 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 
 function RootComponent() {
   const [showSplash, setShowSplash] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // Verificação de segurança no lado do cliente (sessionStorage só existe aqui)
+    const auth = sessionStorage.getItem("frostcash:auth");
+    
+    if (!auth && location.pathname !== "/login") {
+      navigate({ to: "/login", replace: true });
+    } else if (auth && location.pathname === "/login") {
+      navigate({ to: "/", replace: true });
+    } else {
+      setIsReady(true);
+    }
+  }, [location.pathname, navigate]);
+
+  // Se não estiver pronto e não for a tela de login, não renderiza o conteúdo para evitar "piscar" o dashboard
+  if (!isReady && location.pathname !== "/login") {
+    return (
+      <ThemeProvider defaultTheme="light" storageKey="frostcash-theme">
+        <div className="min-h-screen bg-background" />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider defaultTheme="light" storageKey="frostcash-theme">
