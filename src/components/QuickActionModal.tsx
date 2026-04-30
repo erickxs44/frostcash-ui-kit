@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, TrendingDown, IceCream2, ArrowLeft, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { addExpense, addStockPurchase, registerSale, useStore, type Unit } from "@/lib/store";
@@ -21,8 +21,15 @@ export function QuickActionModal({
   const [step, setStep] = useState<Step>("menu");
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
-  const [productId, setProductId] = useState<string>(products[0]?.id ?? "");
+  const [productId, setProductId] = useState<string>("");
   const [categoria, setCategoria] = useState<(typeof categorias)[number]>("Insumos");
+
+  // Garante que o productId inicial seja o primeiro produto disponível
+  useEffect(() => {
+    if (products.length > 0 && !productId) {
+      setProductId(products[0].id);
+    }
+  }, [products, productId]);
 
   // Estados para Insumos
   const [selectedStockId, setSelectedStockId] = useState<string>("");
@@ -68,7 +75,11 @@ export function QuickActionModal({
         return;
       }
       const qty = Math.max(1, Math.round(value / prod.price)) || 1;
-      registerSale([{ productId: prod.id, name: prod.name, price: prod.price, qty }], "Dinheiro");
+      const consumedStock = prod.ingredients.map(ing => ({ 
+        stockId: ing.stockId, 
+        qty: ing.defaultQty 
+      }));
+      registerSale([{ productId: prod.id, name: prod.name, price: prod.price, qty, consumedStock }], "Dinheiro");
       toast.success("Venda registrada!", { description: `${qty}x ${prod.name}` });
     } else {
       if (categoria === "Insumos") {
