@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { useStore, addClient, payDebt, registerSale } from "@/lib/store";
+import { useStore, addClient, payDebt, registerSale, removeClient } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
 import { toast } from "sonner";
-import { UserPlus, User, Phone, CheckCircle, CreditCard, Plus } from "lucide-react";
+import { UserPlus, User, Phone, CheckCircle, CreditCard, Plus, X } from "lucide-react";
 
 export const Route = createFileRoute("/contas-a-receber")({
   head: () => ({ meta: [{ title: "Fiados — FrostCash" }] }),
@@ -72,6 +72,13 @@ function ContasAReceber() {
     toast.success(`Venda de ${fmt(amount)} registrada para ${clientName}!`);
   };
 
+  const handleRemoveClient = (clientId: string, clientName: string) => {
+    if (confirm(`Deseja realmente remover o cliente "${clientName}" e todos os seus dados de dívida?`)) {
+      removeClient(clientId);
+      toast.success("Cliente removido com sucesso.");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -132,22 +139,21 @@ function ContasAReceber() {
               .sort((a, b) => b.debt - a.debt) // Mostrar quem deve mais no topo
               .map(client => (
               <GlassCard key={client.id} className="relative group hover:scale-[1.01] transition-transform duration-300 border-white/5 overflow-hidden">
+                <button 
+                  onClick={() => handleRemoveClient(client.id, client.name)}
+                  className="absolute top-1.5 right-1.5 h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 transition-all z-10"
+                  title="Remover cliente"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+
                 <div className="p-3 flex items-center gap-3">
                   <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-base border border-primary/10 shadow-inner">
                     {client.name.charAt(0).toUpperCase()}
                   </div>
                   
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <h3 className="font-bold text-sm truncate tracking-tight">{client.name}</h3>
-                      <button 
-                        onClick={() => handleAddFiado(client.id, client.name)}
-                        className="h-5 w-5 shrink-0 rounded-full glass flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors border border-white/5 shadow-sm"
-                        title="Nova venda fiada"
-                      >
-                        <Plus className="h-2.5 w-2.5" />
-                      </button>
-                    </div>
+                    <h3 className="font-bold text-sm truncate tracking-tight">{client.name}</h3>
                     {client.phone ? (
                       <p className="text-[10px] text-muted-foreground flex items-center opacity-70">
                         <Phone className="h-2 w-2 mr-1 text-primary" />
@@ -156,6 +162,16 @@ function ContasAReceber() {
                     ) : (
                       <p className="text-[9px] text-muted-foreground italic opacity-50">Sem fone</p>
                     )}
+                  </div>
+
+                  <div className="flex-1 flex justify-center">
+                    <button 
+                      onClick={() => handleAddFiado(client.id, client.name)}
+                      className="h-8 w-8 rounded-full glass flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors border border-white/5 shadow-sm"
+                      title="Nova venda fiada"
+                    >
+                      <Plus className="h-5 w-5" />
+                    </button>
                   </div>
 
                   <div className="text-right shrink-0 px-2 border-l border-white/5">
@@ -184,7 +200,7 @@ function ContasAReceber() {
                   </div>
                 </div>
                 {client.debt > 0 && (
-                  <div className="absolute top-0 right-0 w-1 h-full bg-red-500/40" title="Pagamento Pendente"></div>
+                  <div className="absolute top-0 left-0 w-1 h-full bg-red-500/40" title="Pagamento Pendente"></div>
                 )}
               </GlassCard>
             ))

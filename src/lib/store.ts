@@ -318,6 +318,13 @@ export function payDebt(clientId: string, amount: number) {
   });
 }
 
+export function removeClient(clientId: string) {
+  setState(s => ({
+    ...s,
+    clients: s.clients.filter(c => c.id !== clientId)
+  }));
+}
+
 // Despesa avulsa (não vinculada a estoque)
 export function addExpense(input: { description: string; amount: number; category: string; fornecedor?: string }) {
   setState((s) => {
