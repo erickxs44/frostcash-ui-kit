@@ -126,7 +126,7 @@ function Dashboard() {
     {
       label: "Lucro Líquido",
       value: fmt(profit),
-      delta: balance >= 0 ? `Caixa: ${fmt(balance)}` : `Caixa: ${fmt(balance)}`,
+      delta: balance >= 0 ? `Saldo em Caixa: ${fmt(balance)}` : `Saldo em Caixa: ${fmt(balance)}`,
       up: profit >= 0,
       icon: Wallet,
       accent: "from-primary/30 to-primary/5",
@@ -146,14 +146,6 @@ function Dashboard() {
       up: false,
       icon: TrendingDown,
       accent: "from-secondary/40 to-secondary/5",
-    },
-    {
-      label: "Vendas Realizadas",
-      value: String(todaysTx.filter(t => t.kind === "sale").length),
-      delta: "hoje",
-      up: true,
-      icon: IceCream,
-      accent: "from-chart-5/30 to-chart-5/5",
     },
   ];
 
@@ -282,30 +274,40 @@ function Dashboard() {
           </DropdownMenu>
         </header>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
           {stats.map((s, i) => (
             <motion.div
               key={s.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
+              className={i === 0 ? "md:col-span-2" : ""}
             >
-              <GlassCard className={`bg-gradient-to-br ${s.accent} relative overflow-hidden`}>
+              <GlassCard className={`bg-gradient-to-br ${s.accent} relative overflow-hidden ${i === 0 ? "p-8" : "p-6"}`}>
                 <div className="flex items-start justify-between mb-4">
-                  <div className="h-11 w-11 rounded-xl glass flex items-center justify-center shadow-sm">
-                    <s.icon className="h-5 w-5 text-primary" />
+                  <div className={`rounded-2xl glass flex items-center justify-center shadow-sm ${i === 0 ? "h-14 w-14" : "h-11 w-11"}`}>
+                    <s.icon className={`${i === 0 ? "h-6 w-6" : "h-5 w-5"} text-primary`} />
                   </div>
-                  <span
-                    className={`text-[10px] font-medium flex items-center gap-0.5 ${
-                      s.up ? "text-success" : "text-secondary"
-                    }`}
-                  >
-                    {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                    {s.delta}
-                  </span>
+                  <div className="text-right flex flex-col items-end">
+                    <span
+                      className={`text-xs font-bold flex items-center gap-0.5 ${
+                        s.up ? "text-success" : "text-secondary"
+                      }`}
+                    >
+                      {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                      {s.delta}
+                    </span>
+                    {i === 0 && (
+                       <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Desempenho Geral</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl lg:text-2xl font-bold mt-1">{s.value}</p>
+                <p className={`${i === 0 ? "text-sm" : "text-xs"} text-muted-foreground font-medium`}>{s.label}</p>
+                <p className={`${i === 0 ? "text-4xl" : "text-2xl"} font-black mt-1 tracking-tight`}>{s.value}</p>
+                
+                {i === 0 && (
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[100px] rounded-full -mr-16 -mt-16" />
+                )}
               </GlassCard>
             </motion.div>
           ))}
