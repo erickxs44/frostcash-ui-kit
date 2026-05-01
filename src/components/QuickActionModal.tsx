@@ -69,18 +69,12 @@ export function QuickActionModal({
     }
 
     if (step === "venda") {
-      const prod = products.find((p) => p.id === productId);
-      if (!prod) {
-        toast.error("Selecione um produto.");
+      if (!desc) {
+        toast.error("Informe uma descrição para a venda.");
         return;
       }
-      const qty = Math.max(1, Math.round(value / prod.price)) || 1;
-      const consumedStock = prod.ingredients.map(ing => ({ 
-        stockId: ing.stockId, 
-        qty: ing.defaultQty 
-      }));
-      registerSale([{ productId: prod.id, name: prod.name, price: prod.price, qty, consumedStock }], "Dinheiro");
-      toast.success("Venda registrada!", { description: `${qty}x ${prod.name}` });
+      registerSale([{ productId: "manual", name: desc, price: value, qty: 1, consumedStock: [] }], "Dinheiro");
+      toast.success("Venda registrada!", { description: `${desc} · R$ ${value.toFixed(2)}` });
     } else {
       if (categoria === "Insumos") {
         if (isRegisteringNew) {
@@ -214,22 +208,17 @@ export function QuickActionModal({
                 >
                   {step === "venda" && (
                     <div>
-                      <label className="text-xs text-muted-foreground mb-1.5 block">Produto</label>
-                      <select
-                        value={productId}
-                        onChange={(e) => setProductId(e.target.value)}
+                      <label className="text-xs text-muted-foreground mb-1.5 block">Descrição da Venda</label>
+                      <input
+                        value={desc}
+                        onChange={(e) => setDesc(e.target.value)}
+                        placeholder="Ex: Venda Manual ou Vendas do Dia"
                         className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      >
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — R$ {p.price.toFixed(2)}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   )}
                   <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Valor (R$)</label>
+                    <label className="text-xs text-muted-foreground mb-1.5 block">Valor Total (R$)</label>
                     <input
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}

@@ -32,11 +32,26 @@ function ContasAReceber() {
     setShowAddClient(false);
   };
 
-  const handlePayDebt = (clientId: string, amount: number) => {
-    if (confirm(`Confirmar o pagamento de ${fmt(amount)}? Esse valor será adicionado ao caixa de hoje.`)) {
-      payDebt(clientId, amount);
-      toast.success("Pagamento registrado com sucesso!");
+  const handlePayDebt = (clientId: string, currentDebt: number) => {
+    const input = prompt(`Quanto o cliente está pagando? (Dívida total: ${fmt(currentDebt)})`, currentDebt.toString());
+    
+    if (input === null) return; // cancelou
+
+    const amount = parseFloat(input.replace(',', '.'));
+    
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Valor inválido.");
+      return;
     }
+
+    if (amount > currentDebt) {
+      if (!confirm(`O valor pago (${fmt(amount)}) é maior que a dívida (${fmt(currentDebt)}). Deseja prosseguir e deixar o saldo positivo?`)) {
+        return;
+      }
+    }
+
+    payDebt(clientId, amount);
+    toast.success(amount >= currentDebt ? "Dívida quitada com sucesso!" : `Pagamento de ${fmt(amount)} registrado. Saldo atualizado.`);
   };
 
   return (
@@ -56,88 +71,97 @@ function ContasAReceber() {
         </header>
 
         {showAddClient && (
-          <GlassCard className="mb-6 border-primary/20 bg-primary/5">
+          <GlassCard className="mb-6 border-primary/20 bg-primary/5 p-6">
             <h3 className="font-semibold mb-4 text-lg">Cadastrar Novo Cliente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Nome</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground block">Nome do Cliente</label>
                 <input 
                   type="text" 
                   value={newClientName} 
                   onChange={(e) => setNewClientName(e.target.value)} 
-                  placeholder="Nome completo"
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                  placeholder="Ex: João Silva"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner"
                 />
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Telefone</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground block">WhatsApp / Telefone</label>
                 <input 
                   type="text" 
                   value={newClientPhone} 
                   onChange={(e) => setNewClientPhone(e.target.value)} 
-                  placeholder="(00) 00000-0000"
-                  className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                  placeholder="Ex: (83) 99999-9999"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner"
                 />
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="secondary" onClick={() => setShowAddClient(false)}>Cancelar</Button>
-              <Button variant="gradient" onClick={handleAddClient}>Salvar</Button>
+              <Button variant="secondary" onClick={() => setShowAddClient(false)} className="rounded-xl">Cancelar</Button>
+              <Button variant="gradient" onClick={handleAddClient} className="rounded-xl px-8 shadow-glow">Salvar Cliente</Button>
             </div>
           </GlassCard>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(!clients || clients.length === 0) ? (
-            <div className="col-span-full py-12 text-center text-muted-foreground">
-              <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum cliente cadastrado.</p>
+            <div className="col-span-full py-12 text-center text-muted-foreground glass rounded-2xl border border-dashed border-white/10">
+              <User className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p className="text-lg">Nenhum cliente cadastrado ainda.</p>
+              <p className="text-sm opacity-60">Comece adicionando seu primeiro cliente de fiado.</p>
             </div>
           ) : (
-            clients.map(client => (
-              <GlassCard key={client.id} className="flex flex-col h-full">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">{client.name}</h3>
-                    {client.phone && (
-                      <p className="text-xs text-muted-foreground flex items-center mt-1">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {client.phone}
-                      </p>
-                    )}
-                  </div>
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                    {client.name.charAt(0).toUpperCase()}
-                  </div>
-                </div>
+            clients
+              .sort((a, b) => b.debt - a.debt) // Mostrar quem deve mais no topo
+              .map(client => (
+              <GlassCard key={client.id} className="flex flex-col h-full hover:scale-[1.02] transition-transform duration-300 border-white/5 overflow-hidden">
+                {client.debt > 0 && (
+                   <div className="absolute top-0 right-0 px-3 py-1 bg-destructive/20 text-destructive text-[10px] font-bold rounded-bl-xl border-l border-b border-destructive/20">
+                    PENDENTE
+                   </div>
+                )}
                 
-                <div className="mt-auto pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-muted-foreground">Dívida Pendente:</span>
-                    <span className={`text-lg font-bold ${client.debt > 0 ? "text-destructive" : "text-success"}`}>
-                      {fmt(client.debt)}
-                    </span>
+                <div className="p-6 flex-1">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-xl border border-primary/20 shadow-inner">
+                      {client.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-xl truncate tracking-tight">{client.name}</h3>
+                      {client.phone ? (
+                        <p className="text-sm text-muted-foreground flex items-center mt-0.5 opacity-70">
+                          <Phone className="h-3 w-3 mr-1.5 text-primary" />
+                          {client.phone}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic mt-0.5 opacity-50">Sem telefone</p>
+                      )}
+                    </div>
                   </div>
                   
-                  {client.debt > 0 ? (
-                    <Button 
-                      variant="gradient" 
-                      className="w-full"
-                      onClick={() => handlePayDebt(client.id, client.debt)}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Dar Baixa (Pagar)
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="secondary" 
-                      className="w-full opacity-50"
-                      disabled
-                    >
-                      <CreditCard className="h-4 w-4 mr-2" />
-                      Tudo Quitado
-                    </Button>
-                  )}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                      <span className="text-sm font-medium text-muted-foreground">Saldo Devedor</span>
+                      <span className={`text-2xl font-black tracking-tight ${client.debt > 0 ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]" : "text-emerald-500"}`}>
+                        {fmt(client.debt)}
+                      </span>
+                    </div>
+                    
+                    {client.debt > 0 ? (
+                      <Button 
+                        variant="gradient" 
+                        className="w-full rounded-2xl h-12 shadow-glow font-bold"
+                        onClick={() => handlePayDebt(client.id, client.debt)}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Registrar Pagamento
+                      </Button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold text-sm">
+                        <CreditCard className="h-4 w-4" />
+                        Tudo Quitado
+                      </div>
+                    )}
+                  </div>
                 </div>
               </GlassCard>
             ))

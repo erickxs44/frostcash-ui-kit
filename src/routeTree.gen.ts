@@ -13,9 +13,9 @@ import { Route as PdvRouteImport } from './routes/pdv'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LancamentosRouteImport } from './routes/lancamentos'
 import { Route as EstoqueRouteImport } from './routes/estoque'
+import { Route as ContasAReceberRouteImport } from './routes/contas-a-receber'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ContasAReceberRouteImport } from './routes/contas-a-receber'
 
 const PdvRoute = PdvRouteImport.update({
   id: '/pdv',
@@ -37,6 +37,11 @@ const EstoqueRoute = EstoqueRouteImport.update({
   path: '/estoque',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContasAReceberRoute = ContasAReceberRouteImport.update({
+  id: '/contas-a-receber',
+  path: '/contas-a-receber',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -45,11 +50,6 @@ const ConfiguracoesRoute = ConfiguracoesRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContasAReceberRoute = ContasAReceberRouteImport.update({
-  id: '/contas-a-receber',
-  path: '/contas-a-receber',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -92,7 +92,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/pdv'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/configuracoes' | '/contas-a-receber' | '/estoque' | '/lancamentos' | '/login' | '/pdv'
+  to:
+    | '/'
+    | '/configuracoes'
+    | '/contas-a-receber'
+    | '/estoque'
+    | '/lancamentos'
+    | '/login'
+    | '/pdv'
   id:
     | '__root__'
     | '/'
@@ -144,18 +151,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstoqueRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/configuracoes': {
-      id: '/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof ConfiguracoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/contas-a-receber': {
       id: '/contas-a-receber'
       path: '/contas-a-receber'
       fullPath: '/contas-a-receber'
       preLoaderRoute: typeof ContasAReceberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configuracoes': {
+      id: '/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
