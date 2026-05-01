@@ -440,12 +440,24 @@ function Dashboard() {
             ) : (
               <div className="space-y-2">
                 {recent.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                    <span className="text-sm truncate pr-2">{m.description}</span>
-                    <span className={`text-sm font-medium whitespace-nowrap ${m.amount >= 0 ? "text-success" : "text-secondary"}`}>
-                      {m.amount >= 0 ? "+" : ""}
-                      {fmt(m.amount)}
-                    </span>
+                  <div key={m.id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0 group">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm truncate pr-2 font-medium">{m.description}</span>
+                      <span className="text-[10px] text-muted-foreground opacity-60">
+                        {new Date(m.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })} • {m.payment}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {m.payment === "Fiado" && (
+                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-tighter">
+                          Pendente
+                        </span>
+                      )}
+                      <span className={`text-sm font-bold whitespace-nowrap ${m.payment === "Fiado" ? "text-amber-500/70" : (m.amount >= 0 ? "text-success" : "text-secondary")}`}>
+                        {m.amount >= 0 ? "+" : ""}
+                        {fmt(m.amount)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
