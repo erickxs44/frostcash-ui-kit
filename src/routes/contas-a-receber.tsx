@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { useStore, addClient, payDebt } from "@/lib/store";
+import { useStore, addClient, payDebt, registerSale } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { GlassCard } from "@/components/GlassCard";
 import { toast } from "sonner";
-import { UserPlus, User, Phone, CheckCircle, CreditCard } from "lucide-react";
+import { UserPlus, User, Phone, CheckCircle, CreditCard, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/contas-a-receber")({
   head: () => ({ meta: [{ title: "Fiados — FrostCash" }] }),
@@ -52,6 +52,24 @@ function ContasAReceber() {
 
     payDebt(clientId, amount);
     toast.success(amount >= currentDebt ? "Dívida quitada com sucesso!" : `Pagamento de ${fmt(amount)} registrado. Saldo atualizado.`);
+  };
+
+  const handleAddFiado = (clientId: string, clientName: string) => {
+    const inputDesc = prompt(`Descrição da venda para ${clientName}:`, "Venda Balcão");
+    if (!inputDesc) return;
+    
+    const inputVal = prompt(`Qual o valor da venda fiada?`);
+    if (!inputVal) return;
+    
+    const amount = parseFloat(inputVal.replace(',', '.'));
+    
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Valor inválido.");
+      return;
+    }
+    
+    registerSale([{ productId: "manual", name: inputDesc, price: amount, qty: 1 }], "Fiado", clientId);
+    toast.success(`Venda de ${fmt(amount)} registrada para ${clientName}!`);
   };
 
   return (
@@ -122,10 +140,10 @@ function ContasAReceber() {
                 
                 <div className="p-6 flex-1">
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-xl border border-primary/20 shadow-inner">
+                    <div className="h-14 w-14 shrink-0 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-xl border border-primary/20 shadow-inner">
                       {client.name.charAt(0).toUpperCase()}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-xl truncate tracking-tight">{client.name}</h3>
                       {client.phone ? (
                         <p className="text-sm text-muted-foreground flex items-center mt-0.5 opacity-70">
@@ -136,6 +154,13 @@ function ContasAReceber() {
                         <p className="text-xs text-muted-foreground italic mt-0.5 opacity-50">Sem telefone</p>
                       )}
                     </div>
+                    <button 
+                      onClick={() => handleAddFiado(client.id, client.name)}
+                      className="h-9 w-9 shrink-0 rounded-full glass flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors border border-white/5 shadow-sm ml-auto"
+                      title="Adicionar nova venda fiada"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
                   </div>
                   
                   <div className="space-y-4">
