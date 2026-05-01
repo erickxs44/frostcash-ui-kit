@@ -154,21 +154,35 @@ function Lancamentos() {
                     >
                       <td className="px-5 py-3 text-muted-foreground">{fmtDate(row.date)}</td>
                       <td className="px-5 py-3 font-medium">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <span
-                            className={`h-7 w-7 rounded-lg flex items-center justify-center ${
-                              isIn ? "bg-success/15 text-success" : "bg-secondary/15 text-secondary"
+                            className={`h-7 w-7 shrink-0 rounded-lg flex items-center justify-center ${
+                              row.payment === "Fiado" ? "bg-amber-500/15 text-amber-500" : (isIn ? "bg-success/15 text-success" : "bg-secondary/15 text-secondary")
                             }`}
                           >
                             {isIn ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                           </span>
-                          {row.description}
+                          <div className="flex flex-col">
+                            <span className="flex items-center gap-2">
+                              {row.description}
+                              {row.payment === "Fiado" && (
+                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-tighter hidden sm:inline-flex">
+                                  Pendente
+                                </span>
+                              )}
+                            </span>
+                            {row.payment && (
+                              <span className="text-[10px] text-muted-foreground opacity-60 font-normal">
+                                {row.payment} {row.payment === "Fiado" && <span className="sm:hidden text-amber-500 ml-1">• Pendente</span>}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-5 py-3 hidden sm:table-cell">
                         <span className="glass px-2 py-1 rounded-md text-xs">{row.category}</span>
                       </td>
-                      <td className={`px-5 py-3 text-right font-semibold ${isIn ? "text-success" : "text-secondary"}`}>
+                      <td className={`px-5 py-3 text-right font-semibold ${row.payment === "Fiado" ? "text-amber-500/70" : (isIn ? "text-success" : "text-secondary")}`}>
                         {isIn ? "+" : ""}
                         {fmt(row.amount)}
                       </td>
