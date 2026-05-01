@@ -274,39 +274,64 @@ function Dashboard() {
           </DropdownMenu>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-2 gap-4 lg:gap-6">
           {stats.map((s, i) => (
             <motion.div
               key={s.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className={i === 0 ? "md:col-span-2" : ""}
+              className={i === 0 ? "col-span-2" : "col-span-1"}
             >
-              <GlassCard className={`bg-gradient-to-br ${s.accent} relative overflow-hidden ${i === 0 ? "p-8" : "p-6"}`}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className={`rounded-2xl glass flex items-center justify-center shadow-sm ${i === 0 ? "h-14 w-14" : "h-11 w-11"}`}>
-                    <s.icon className={`${i === 0 ? "h-6 w-6" : "h-5 w-5"} text-primary`} />
+              <GlassCard 
+                className={cn(
+                  "bg-gradient-to-br relative overflow-hidden flex flex-col justify-between transition-all",
+                  s.accent,
+                  i === 0 ? "p-6 min-h-[140px]" : "p-5 aspect-square items-center justify-center text-center"
+                )}
+              >
+                <div className={cn(
+                  "flex items-start justify-between w-full",
+                  i !== 0 && "flex-col items-center gap-2 mb-2"
+                )}>
+                  <div className={cn(
+                    "rounded-2xl glass flex items-center justify-center shadow-sm",
+                    i === 0 ? "h-12 w-12" : "h-10 w-10"
+                  )}>
+                    <s.icon className={cn(i === 0 ? "h-6 w-6" : "h-5 w-5", "text-primary")} />
                   </div>
-                  <div className="text-right flex flex-col items-end">
+                  <div className={cn(
+                    "flex flex-col",
+                    i === 0 ? "items-end text-right" : "items-center text-center"
+                  )}>
                     <span
-                      className={`text-xs font-bold flex items-center gap-0.5 ${
+                      className={cn(
+                        "text-[10px] font-bold flex items-center gap-0.5",
                         s.up ? "text-success" : "text-secondary"
-                      }`}
+                      )}
                     >
                       {s.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                       {s.delta}
                     </span>
                     {i === 0 && (
-                       <span className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Desempenho Geral</span>
+                       <span className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider font-medium">Hoje</span>
                     )}
                   </div>
                 </div>
-                <p className={`${i === 0 ? "text-sm" : "text-xs"} text-muted-foreground font-medium`}>{s.label}</p>
-                <p className={`${i === 0 ? "text-4xl" : "text-2xl"} font-black mt-1 tracking-tight`}>{s.value}</p>
+                
+                <div className={i !== 0 ? "flex flex-col items-center" : ""}>
+                  <p className={cn(
+                    "text-muted-foreground font-medium mb-0.5",
+                    i === 0 ? "text-xs" : "text-[11px]"
+                  )}>{s.label}</p>
+                  <p className={cn(
+                    "font-black tracking-tight",
+                    i === 0 ? "text-3xl" : "text-xl"
+                  )}>{s.value}</p>
+                </div>
                 
                 {i === 0 && (
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[100px] rounded-full -mr-16 -mt-16" />
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-[80px] rounded-full -mr-16 -mt-16" />
                 )}
               </GlassCard>
             </motion.div>
