@@ -120,12 +120,12 @@ function ContasAReceber() {
           </GlassCard>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {(!clients || clients.length === 0) ? (
             <div className="col-span-full py-12 text-center text-muted-foreground glass rounded-2xl border border-dashed border-white/10">
-              <User className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="text-lg">Nenhum cliente cadastrado ainda.</p>
-              <p className="text-sm opacity-60">Comece adicionando seu primeiro cliente de fiado.</p>
+              <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              <p className="text-base">Nenhum cliente cadastrado ainda.</p>
+              <p className="text-xs opacity-60">Comece adicionando seu primeiro cliente de fiado.</p>
             </div>
           ) : (
             clients
@@ -133,40 +133,40 @@ function ContasAReceber() {
               .map(client => (
               <GlassCard key={client.id} className="flex flex-col h-full hover:scale-[1.01] transition-transform duration-300 border-white/5 overflow-hidden">
                 {client.debt > 0 && (
-                   <div className="absolute top-0 right-0 px-2 py-0.5 bg-destructive/20 text-destructive text-[9px] font-bold rounded-bl-lg border-l border-b border-destructive/20">
+                   <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-destructive/20 text-destructive text-[8px] font-bold rounded-bl-lg border-l border-b border-destructive/20">
                     PENDENTE
                    </div>
                 )}
                 
-                <div className="p-4 flex-1">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-base border border-primary/10 shadow-inner">
+                <div className="p-3 flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 shrink-0 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary font-bold text-sm border border-primary/10 shadow-inner">
                       {client.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-base truncate tracking-tight">{client.name}</h3>
+                      <h3 className="font-bold text-sm truncate tracking-tight">{client.name}</h3>
                       {client.phone ? (
-                        <p className="text-[11px] text-muted-foreground flex items-center mt-0.5 opacity-70">
-                          <Phone className="h-2.5 w-2.5 mr-1 text-primary" />
+                        <p className="text-[10px] text-muted-foreground flex items-center mt-0.5 opacity-70">
+                          <Phone className="h-2 w-2 mr-1 text-primary" />
                           {client.phone}
                         </p>
                       ) : (
-                        <p className="text-[10px] text-muted-foreground italic mt-0.5 opacity-50">Sem telefone</p>
+                        <p className="text-[9px] text-muted-foreground italic mt-0.5 opacity-50">Sem fone</p>
                       )}
                     </div>
                     <button 
                       onClick={() => handleAddFiado(client.id, client.name)}
-                      className="h-7 w-7 shrink-0 rounded-full glass flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors border border-white/5 shadow-sm"
+                      className="h-6 w-6 shrink-0 rounded-full glass flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-colors border border-white/5 shadow-sm"
                       title="Adicionar nova venda fiada"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3" />
                     </button>
                   </div>
                   
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
-                      <span className="text-[11px] font-medium text-muted-foreground">Dívida</span>
-                      <span className={`text-lg font-black tracking-tight ${client.debt > 0 ? "text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.2)]" : "text-emerald-500"}`}>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                      <span className="text-[10px] font-medium text-muted-foreground">Dívida</span>
+                      <span className={`text-base font-black tracking-tight ${client.debt > 0 ? "text-red-500 drop-shadow-[0_0_4px_rgba(239,68,68,0.2)]" : "text-emerald-500"}`}>
                         {fmt(client.debt)}
                       </span>
                     </div>
@@ -175,16 +175,16 @@ function ContasAReceber() {
                       <Button 
                         variant="gradient" 
                         size="sm"
-                        className="w-full rounded-xl h-9 shadow-glow font-bold text-xs"
+                        className="w-full rounded-lg h-8 shadow-glow font-bold text-[10px]"
                         onClick={() => handlePayDebt(client.id, client.debt)}
                       >
-                        <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                        Dar Baixa
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Baixa
                       </Button>
                     ) : (
-                      <div className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold text-[11px]">
-                        <CreditCard className="h-3.5 w-3.5" />
-                        Quitado
+                      <div className="flex items-center justify-center gap-1 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold text-[10px]">
+                        <CreditCard className="h-3 w-3" />
+                        Pago
                       </div>
                     )}
                   </div>
