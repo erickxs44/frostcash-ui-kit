@@ -73,47 +73,15 @@ export function QuickActionModal({
         toast.error("Informe uma descrição para a venda.");
         return;
       }
-      registerSale([{ productId: "manual", name: desc, price: value, qty: 1, consumedStock: [] }], "Dinheiro");
+      registerSale([{ productId: "manual", name: desc, price: value, qty: 1 }], "Dinheiro");
       toast.success("Venda registrada!", { description: `${desc} · R$ ${value.toFixed(2)}` });
     } else {
-      if (categoria === "Insumos") {
-        if (isRegisteringNew) {
-          if (!newName || !itemQty) {
-            toast.error("Preencha o nome e a quantidade do novo insumo.");
-            return;
-          }
-          addStockPurchase({
-            name: newName,
-            unit: newUnit,
-            qty: parseFloat(itemQty.replace(",", ".")),
-            totalCost: value,
-            minQty: parseFloat(newMin) || undefined,
-            maxQty: parseFloat(newMax) || undefined,
-          });
-          toast.success("Novo insumo cadastrado e estoque atualizado!");
-        } else {
-          const item = stock.find((s) => s.id === selectedStockId);
-          if (!item || !itemQty) {
-            toast.error("Selecione um item e a quantidade.");
-            return;
-          }
-          addStockPurchase({
-            stockId: item.id,
-            name: item.name,
-            unit: item.unit,
-            qty: parseFloat(itemQty.replace(",", ".")),
-            totalCost: value,
-          });
-          toast.success("Estoque atualizado!", { description: `+${itemQty}${item.unit} de ${item.name}` });
-        }
-      } else {
-        if (!desc) {
-          toast.error("Informe a descrição.");
-          return;
-        }
-        addExpense({ description: desc, amount: value, category: categoria });
-        toast.success("Despesa registrada!", { description: `${desc} · R$ ${value.toFixed(2)}` });
+      if (!desc) {
+        toast.error("Informe a descrição.");
+        return;
       }
+      addExpense({ description: desc, amount: value, category: categoria });
+      toast.success("Despesa registrada!", { description: `${desc} · R$ ${value.toFixed(2)}` });
     }
     close();
   }
@@ -230,6 +198,15 @@ export function QuickActionModal({
                   {step === "despesa" && (
                     <>
                       <div>
+                        <label className="text-xs text-muted-foreground mb-1.5 block">Descrição da Despesa</label>
+                        <input
+                          value={desc}
+                          onChange={(e) => setDesc(e.target.value)}
+                          placeholder="Ex: Compra de Leite, Aluguel, etc"
+                          className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div>
                         <label className="text-xs text-muted-foreground mb-1.5 block">Categoria</label>
                         <div className="flex flex-wrap gap-2">
                           {categorias.map((c) => {
@@ -250,115 +227,6 @@ export function QuickActionModal({
                           })}
                         </div>
                       </div>
-
-                      {categoria === "Insumos" ? (
-                        <div className="space-y-3 pt-2">
-                          {!isRegisteringNew ? (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <label className="text-xs text-muted-foreground block">Selecione o Insumo (Atalho)</label>
-                                <button
-                                  onClick={() => setIsRegisteringNew(true)}
-                                  className="text-[10px] text-primary flex items-center gap-1 hover:underline"
-                                >
-                                  <Plus className="h-3 w-3" /> Novo Produto
-                                </button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                                {stock.map((item) => (
-                                  <button
-                                    key={item.id}
-                                    onClick={() => setSelectedStockId(item.id)}
-                                    className={`p-3 rounded-xl text-xs font-medium transition text-left border ${
-                                      selectedStockId === item.id
-                                        ? "bg-primary/20 border-primary shadow-glow-sm"
-                                        : "glass border-transparent hover:bg-white/5 active:scale-95"
-                                    }`}
-                                  >
-                                    <div className="flex flex-col gap-1">
-                                      <span className="truncate">{item.name}</span>
-                                      <span className="text-[10px] text-muted-foreground font-normal">Estoque: {item.qty}{item.unit}</span>
-                                    </div>
-                                  </button>
-                                ))}
-                                {stock.length === 0 && (
-                                  <p className="col-span-2 text-center py-4 text-[11px] text-muted-foreground glass rounded-xl border-dashed border border-white/10">
-                                    Nenhum produto cadastrado.
-                                  </p>
-                                )}
-                              </div>
-                              {selectedStockId && (
-                                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
-                                  <label className="text-xs text-muted-foreground mb-1.5 block">Quanto você comprou?</label>
-                                  <input
-                                    value={itemQty}
-                                    onChange={(e) => setItemQty(e.target.value)}
-                                    placeholder={`ex: 10 ${stock.find(s => s.id === selectedStockId)?.unit || ""}`}
-                                    inputMode="decimal"
-                                    className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                  />
-                                </motion.div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/10">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold">Cadastrar Novo Produto</h4>
-                                <button
-                                  onClick={() => setIsRegisteringNew(false)}
-                                  className="text-[10px] text-primary hover:underline"
-                                >
-                                  Voltar aos atalhos
-                                </button>
-                              </div>
-                              <input
-                                value={newName}
-                                onChange={(e) => setNewName(e.target.value)}
-                                placeholder="Nome do Insumo (ex: Leite Condensado)"
-                                className="w-full glass rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                              />
-                              <div className="grid grid-cols-2 gap-2">
-                                <select
-                                  value={newUnit}
-                                  onChange={(e) => setNewUnit(e.target.value as Unit)}
-                                  className="glass rounded-xl px-3 py-2 text-sm focus:outline-none bg-black"
-                                >
-                                  <option value="kg">kg</option>
-                                  <option value="lt">L</option>
-                                  <option value="un">un</option>
-                                </select>
-                                <input
-                                  value={newMax}
-                                  onChange={(e) => setNewMax(e.target.value)}
-                                  placeholder="Qtd Máxima (100%)"
-                                  inputMode="decimal"
-                                  className="glass rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground mb-1 block">Estoque Inicial</label>
-                                <input
-                                  value={itemQty}
-                                  onChange={(e) => setItemQty(e.target.value)}
-                                  placeholder="Quanto você tem agora?"
-                                  inputMode="decimal"
-                                  className="w-full glass rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="text-xs text-muted-foreground mb-1.5 block">Descrição</label>
-                          <input
-                            value={desc}
-                            onChange={(e) => setDesc(e.target.value)}
-                            placeholder="Ex: Conta de luz"
-                            className="w-full glass rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                        </div>
-                      )}
                     </>
                   )}
                   <Button onClick={handleSubmit} variant="gradient" size="lg" className="w-full mt-2 rounded-xl">

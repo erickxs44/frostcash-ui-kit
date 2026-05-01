@@ -212,21 +212,17 @@ export function calculateBalance(txs: Transaction[]): number {
 }
 
 export function calculateProfit(txs: Transaction[]): number {
-  // Lucro líquido = entradas - despesas (exceto compra de insumos, pois já abatemos o CMV na venda) - CMV das vendas - perdas
-  let profit = 0;
+  // Lucro líquido = Total de Entradas (Vendas + Recebimentos) - Total de Saídas (Despesas + Perdas)
+  let totalIn = 0;
+  let totalOut = 0;
   for (const t of txs) {
-    if (t.kind === "sale") {
-      profit += t.amount - (t.cost ?? 0);
-    } else if (t.kind === "debt_payment") {
-      // Já foi contabilizado como lucro na venda (competência)
+    if (t.kind === "sale" || t.kind === "debt_payment") {
+      totalIn += t.amount;
     } else {
-      // despesas e perdas já são valores negativos
-      if (t.category !== "Insumos") {
-        profit += t.amount;
-      }
+      totalOut += Math.abs(t.amount);
     }
   }
-  return profit;
+  return totalIn - totalOut;
 }
 
 export function stockPercent(item: StockItem): number {
@@ -256,39 +252,15 @@ function computeCMV(items: { consumedStock: { stockId: string; qty: number }[]; 
 // Mutations
 // ============================================================
 
-// Registrar venda do PDV (decrementa estoque + cria transação)
+// Registrar venda do PDV (focado em fluxo de caixa, sem estoque)
 export function registerSale(
-  cart: { productId: string; name: string; price: number; qty: number; consumedStock: { stockId: string; qty: number }[] }[],
+  cart: { productId: string; name: string; price: number; qty: number }[],
   payment: "Dinheiro" | "Cartão" | "PIX" | "Fiado",
   clientId?: string
 ) {
   if (cart.length === 0) return;
   setState((s) => {
     const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const cost = computeCMV(cart, s.stock);
-
-    // Baixa de estoque baseada nos ingredientes personalizados escolhidos
-    const newStock = s.stock.map((st) => ({ ...st }));
-    const lowStockAlerts: { name: string; qty: number; unit: string; maxQty: number }[] = [];
-
-    for (const it of cart) {
-      for (const r of it.consumedStock) {
-        const idx = newStock.findIndex((x) => x.id === r.stockId);
-        if (idx >= 0) {
-          const item = newStock[idx];
-          const threshold = item.minQty; // Mudança: usar Peso Mínimo configurado
-          const wasAbove = item.qty > threshold;
-          
-          item.qty = Math.max(0, item.qty - r.qty * it.qty);
-          
-          const isBelow = item.qty <= threshold;
-          // Se acabou de cair na zona vermelha, adiciona no alerta
-          if (wasAbove && isBelow) {
-            lowStockAlerts.push(item);
-          }
-        }
-      }
-    }
 
     const tx: Transaction = {
       id: uid(),
@@ -297,7 +269,6 @@ export function registerSale(
       description: cart.length === 1 ? `Venda — ${cart[0].name}` : `Venda — ${cart.length} itens`,
       category: "Vendas",
       amount: total,
-      cost,
       payment,
       items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
       clientId
@@ -310,17 +281,8 @@ export function registerSale(
 
     // 🔄 Sync: Supabase + SheetDB
     syncVenda(tx);
-    // Sync estoque atualizado
-    for (const st of newStock) syncEstoque(st);
 
-    // 📧 Disparar e-mail de alerta caso algo tenha atingido a zona vermelha
-    if (lowStockAlerts.length > 0) {
-      setTimeout(() => {
-        import('./resend').then(m => m.sendLowStockAlert(lowStockAlerts));
-      }, 1000);
-    }
-
-    return { ...s, stock: newStock, clients: newClients, transactions: [tx, ...s.transactions] };
+    return { ...s, clients: newClients, transactions: [tx, ...s.transactions] };
   });
 }
 
@@ -375,59 +337,17 @@ export function addExpense(input: { description: string; amount: number; categor
   });
 }
 
-// Compra de mercadoria: adiciona ao estoque + gera despesa automática
+// Compra de mercadoria: registra apenas como despesa no sistema simplificado
 export function addStockPurchase(input: {
-  stockId?: string;
   name: string;
-  unit: Unit;
-  qty: number;
+  qty?: number;
+  unit?: Unit;
   totalCost: number;
-  minQty?: number;
-  maxQty?: number;
 }) {
-  setState((s) => {
-    const newStock = [...s.stock];
-    let targetIdx = input.stockId ? newStock.findIndex((x) => x.id === input.stockId) : newStock.findIndex((x) => x.name.toLowerCase() === input.name.toLowerCase());
-    
-    if (targetIdx >= 0) {
-      const target = { ...newStock[targetIdx] };
-      const novoCustoUnit = input.totalCost / input.qty;
-      const valorEstoqueAtual = target.qty * target.costPerUnit;
-      const totalQty = target.qty + input.qty;
-      target.costPerUnit = totalQty > 0 ? (valorEstoqueAtual + input.totalCost) / totalQty : novoCustoUnit;
-      target.qty = totalQty;
-      target.totalSpent += input.totalCost;
-      newStock[targetIdx] = target;
-    } else {
-      const target: StockItem = {
-        id: `s_${uid()}`,
-        name: input.name,
-        qty: input.qty,
-        unit: input.unit,
-        minQty: input.minQty ?? Math.max(1, Math.round(input.qty * 0.2)),
-        maxQty: input.maxQty ?? Math.max(1, Math.round(input.qty * 1.5)),
-        costPerUnit: input.totalCost / input.qty,
-        totalSpent: input.totalCost,
-        totalLoss: 0,
-      };
-      newStock.push(target);
-      targetIdx = newStock.length - 1;
-    }
-
-    const tx: Transaction = {
-      id: uid(),
-      kind: "expense",
-      date: new Date().toISOString(),
-      description: `Compra — ${input.qty} ${input.unit} de ${input.name}`,
-      category: "Insumos",
-      amount: -Math.abs(input.totalCost),
-    };
-
-    // 🔄 Sync: Supabase + SheetDB
-    syncDespesa(tx);
-    syncEstoque(newStock[targetIdx]);
-
-    return { ...s, stock: newStock, transactions: [tx, ...s.transactions] };
+  addExpense({
+    description: `Compra — ${input.name}`,
+    amount: input.totalCost,
+    category: "Insumos"
   });
 }
 

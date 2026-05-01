@@ -20,7 +20,6 @@ const navItems = [
   { to: "/pdv", label: "PDV", icon: ShoppingCart },
   { to: "/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
   { to: "/contas-a-receber", label: "A Receber", icon: Users },
-  { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 

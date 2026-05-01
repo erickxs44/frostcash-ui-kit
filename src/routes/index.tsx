@@ -124,32 +124,32 @@ function Dashboard() {
 
   const stats = [
     {
-      label: "Saldo Atual",
-      value: fmt(balance),
-      delta: profit >= 0 ? `Lucro ${fmt(profit)}` : `Prejuízo ${fmt(profit)}`,
-      up: balance >= 0,
+      label: "Lucro Líquido",
+      value: fmt(profit),
+      delta: balance >= 0 ? `Caixa: ${fmt(balance)}` : `Caixa: ${fmt(balance)}`,
+      up: profit >= 0,
       icon: Wallet,
       accent: "from-primary/30 to-primary/5",
     },
     {
-      label: "Entradas Hoje",
+      label: "Total de Entradas",
       value: fmt(entradasHoje),
-      delta: `${todaysTx.filter((t) => t.amount > 0).length} mov.`,
+      delta: "Hoje",
       up: true,
       icon: TrendingUp,
       accent: "from-success/30 to-success/5",
     },
     {
-      label: "Saídas Hoje",
+      label: "Total de Saídas",
       value: fmt(saidasHoje),
-      delta: `${todaysTx.filter((t) => t.amount < 0).length} mov.`,
+      delta: "Hoje",
       up: false,
       icon: TrendingDown,
       accent: "from-secondary/40 to-secondary/5",
     },
     {
-      label: "Itens Vendidos",
-      value: String(itensVendidos),
+      label: "Vendas Realizadas",
+      value: String(todaysTx.filter(t => t.kind === "sale").length),
       delta: "hoje",
       up: true,
       icon: IceCream,
@@ -314,8 +314,8 @@ function Dashboard() {
         <GlassCard hover={false}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-semibold text-lg text-gradient">Tendência de Crescimento</h2>
-              <p className="text-xs text-muted-foreground">Lucro Acumulado do período</p>
+              <h2 className="font-semibold text-lg text-gradient">Fluxo de Caixa</h2>
+              <p className="text-xs text-muted-foreground">Entradas e saídas acumuladas</p>
             </div>
             <div className="flex gap-1 glass rounded-lg p-1 text-xs">
               {[1, 7, 30].map((d) => (

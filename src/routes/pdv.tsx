@@ -18,12 +18,11 @@ type PaymentMethod = "Dinheiro" | "Cartão" | "PIX" | "Fiado";
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 interface CartLine {
-  id: string; // único por linha, pois um mesmo produto pode ter configurações diferentes
+  id: string; // único por linha
   productId: string;
   name: string;
   price: number;
   qty: number;
-  consumedStock: { stockId: string; qty: number }[];
 }
 
 function getCategoryColor(cat: string) {
@@ -66,32 +65,13 @@ function PDV() {
     if (isNaN(pGrama) || pGrama <= 0) return;
     const kgVendidos = pGrama / 1000;
     const val = kgVendidos * (isNaN(pKg) ? 0 : pKg);
-    const consumedStock: { stockId: string; qty: number }[] = [];
-
-    const baseSorvete = stock.find(s => s.name === "Base de Sorvete (Geral)");
-    if (baseSorvete) {
-      // Se baseSorvete.unit for "g", abate em gramas. Se for "kg", abate em quilos.
-      const qtyToAbate = baseSorvete.unit === "g" ? Number(pesoGrama) : kgVendidos;
-      consumedStock.push({ stockId: baseSorvete.id, qty: qtyToAbate });
-    }
-
-    // Abater adicionais da Ficha Técnica do Buffet
-    for (const r of buffetRecipe) {
-      const st = stock.find(s => s.id === r.stockId);
-      if (st) {
-        // qtyPerKg is defined in the base unit of the stock item per kg sold
-        const qtyToAbate = kgVendidos * r.qtyPerKg;
-        consumedStock.push({ stockId: r.stockId, qty: qtyToAbate });
-      }
-    }
 
     setCart(c => [...c, {
       id: Math.random().toString(),
       productId: "buffet",
-      name: "Buffet a Quilo",
+      name: `Buffet a Quilo (${pGrama}g)`,
       price: val,
-      qty: 1,
-      consumedStock
+      qty: 1
     }]);
     
     setPesoGrama(""); // resetar para o próximo cliente
@@ -103,28 +83,18 @@ function PDV() {
   const [customizingItem, setCustomizingItem] = useState<Product | null>(null);
 
   function openCustomization(p: Product) {
-    if (p.ingredients.length === 0) {
-      // Adiciona direto se não tem insumos configurados
-      addCartLine(p, []);
-    } else {
-      setCustomizingItem(p);
-    }
+    addCartLine(p);
   }
 
-  function addCartLine(p: Product, consumedStock: { stockId: string; qty: number }[]) {
-    // Tenta encontrar um item exatamente igual no carrinho para agrupar
-    const fingerprint = JSON.stringify(consumedStock.slice().sort((a, b) => a.stockId.localeCompare(b.stockId)));
-    
+  function addCartLine(p: Product) {
     setCart((c) => {
-      const existing = c.findIndex(
-        (i) => i.productId === p.id && JSON.stringify(i.consumedStock.slice().sort((a, b) => a.stockId.localeCompare(b.stockId))) === fingerprint
-      );
+      const existing = c.findIndex((i) => i.productId === p.id);
       if (existing >= 0) {
         const newCart = [...c];
         newCart[existing].qty += 1;
         return newCart;
       }
-      return [...c, { id: Math.random().toString(), productId: p.id, name: p.name, price: p.price, qty: 1, consumedStock }];
+      return [...c, { id: Math.random().toString(), productId: p.id, name: p.name, price: p.price, qty: 1 }];
     });
   }
 
@@ -140,14 +110,7 @@ function PDV() {
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
   const total = subtotal;
-
-  const cmv = cart.reduce((sum, line) => {
-    return sum + line.consumedStock.reduce((rs, r) => {
-      const s = stock.find((x) => x.id === r.stockId);
-      return s ? rs + r.qty * s.costPerUnit * line.qty : rs;
-    }, 0);
-  }, 0);
-  const lucroEstimado = total - cmv;
+  const lucroEstimado = total;
 
   async function handleSaveSale() {
     if (cart.length === 0) return;
@@ -330,19 +293,6 @@ function PDV() {
                         </button>
                       </div>
                       
-                      {/* Mostrar insumos que compõem o item */}
-                      {i.consumedStock.length > 0 && (
-                        <div className="text-[10px] text-muted-foreground flex flex-wrap gap-1 mt-1 border-t border-white/5 pt-1">
-                          {i.consumedStock.map(cs => {
-                            const st = stock.find(s => s.id === cs.stockId);
-                            return st && cs.qty > 0 ? (
-                              <span key={cs.stockId} className="bg-white/5 px-1.5 py-0.5 rounded">
-                                {cs.qty} {st.unit} {st.name}
-                              </span>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -352,10 +302,6 @@ function PDV() {
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Subtotal</span>
                   <span>{fmt(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>CMV (custo ingredientes)</span>
-                  <span>{fmt(cmv)}</span>
                 </div>
                 <div className="flex justify-between mt-2">
                   <span className="font-semibold">Total</span>
