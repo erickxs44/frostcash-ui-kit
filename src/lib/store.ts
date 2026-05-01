@@ -25,6 +25,14 @@ export interface ProductIngredient {
   defaultQty: number; // Quantidade padrão selecionada ao abrir o modal (0 = opcional)
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  creditLimit: number;
+  debt: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -34,7 +42,7 @@ export interface Product {
   ingredients: ProductIngredient[];
 }
 
-export type TxKind = "sale" | "expense" | "loss";
+export type TxKind = "sale" | "expense" | "loss" | "debt_payment";
 
 export interface Transaction {
   id: string;
@@ -45,7 +53,8 @@ export interface Transaction {
   amount: number;      // positivo p/ entrada, negativo p/ saída
   cost?: number;       // CMV (apenas vendas) — sempre positivo
   items?: { name: string; qty: number; price: number }[];
-  payment?: "Dinheiro" | "Cartão" | "PIX";
+  payment?: "Dinheiro" | "Cartão" | "PIX" | "Fiado";
+  clientId?: string;
 }
 
 interface Profile {
@@ -59,6 +68,7 @@ interface State {
   stock: StockItem[];
   products: Product[];
   transactions: Transaction[];
+  clients: Client[];
   buffetRecipe?: { stockId: string; qtyPerKg: number }[];
 }
 
@@ -88,7 +98,7 @@ const getStorageKey = () => `frostcash:state:v3:${getUserId()}`;
 
 function loadState(): State {
   if (typeof window === "undefined") {
-    return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [] };
+    return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [], clients: [] };
   }
   try {
     const raw = localStorage.getItem(getStorageKey());
@@ -128,12 +138,15 @@ function loadState(): State {
       if (!parsed.profile) {
         parsed.profile = { name: "Minha Sorveteria", address: "", phone: "" };
       }
+      if (!parsed.clients) {
+        parsed.clients = [];
+      }
       return parsed;
     }
   } catch {
     /* ignore */
   }
-  return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [], buffetRecipe: [] };
+  return { profile: { name: "Minha Sorveteria", address: "", phone: "" }, stock: seedStock, products: seedProducts, transactions: [], clients: [], buffetRecipe: [] };
 }
 
 let state: State = loadState();
@@ -165,6 +178,7 @@ export function resetData() {
     stock: seedStock, 
     products: seedProducts, 
     transactions: [], 
+    clients: [],
     buffetRecipe: [] 
   }));
 }
@@ -194,7 +208,7 @@ export function useStore<T>(selector: (s: State) => T): T {
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 export function calculateBalance(txs: Transaction[]): number {
-  return txs.reduce((sum, t) => sum + t.amount, 0);
+  return txs.reduce((sum, t) => sum + ((t.payment === "Fiado" && t.kind === "sale") ? 0 : t.amount), 0);
 }
 
 export function calculateProfit(txs: Transaction[]): number {
@@ -203,6 +217,8 @@ export function calculateProfit(txs: Transaction[]): number {
   for (const t of txs) {
     if (t.kind === "sale") {
       profit += t.amount - (t.cost ?? 0);
+    } else if (t.kind === "debt_payment") {
+      // Já foi contabilizado como lucro na venda (competência)
     } else {
       // despesas e perdas já são valores negativos
       if (t.category !== "Insumos") {
@@ -243,7 +259,8 @@ function computeCMV(items: { consumedStock: { stockId: string; qty: number }[]; 
 // Registrar venda do PDV (decrementa estoque + cria transação)
 export function registerSale(
   cart: { productId: string; name: string; price: number; qty: number; consumedStock: { stockId: string; qty: number }[] }[],
-  payment: "Dinheiro" | "Cartão" | "PIX",
+  payment: "Dinheiro" | "Cartão" | "PIX" | "Fiado",
+  clientId?: string
 ) {
   if (cart.length === 0) return;
   setState((s) => {
@@ -283,7 +300,13 @@ export function registerSale(
       cost,
       payment,
       items: cart.map((c) => ({ name: c.name, qty: c.qty, price: c.price })),
+      clientId
     };
+
+    let newClients = s.clients;
+    if (payment === "Fiado" && clientId) {
+      newClients = s.clients.map(c => c.id === clientId ? { ...c, debt: c.debt + total } : c);
+    }
 
     // 🔄 Sync: Supabase + SheetDB
     syncVenda(tx);
@@ -297,7 +320,39 @@ export function registerSale(
       }, 1000);
     }
 
-    return { ...s, stock: newStock, transactions: [tx, ...s.transactions] };
+    return { ...s, stock: newStock, clients: newClients, transactions: [tx, ...s.transactions] };
+  });
+}
+
+// Clients
+export function addClient(client: Omit<Client, "id" | "debt">) {
+  setState(s => ({
+    ...s,
+    clients: [...s.clients, { ...client, id: uid(), debt: 0 }]
+  }));
+}
+
+export function payDebt(clientId: string, amount: number) {
+  setState(s => {
+    const client = s.clients.find(c => c.id === clientId);
+    if (!client) return s;
+    
+    const tx: Transaction = {
+      id: uid(),
+      kind: "debt_payment",
+      date: new Date().toISOString(),
+      description: `Pagamento de Fiado — ${client.name}`,
+      category: "Recebimentos",
+      amount: amount,
+      payment: "Dinheiro",
+      clientId
+    };
+    
+    return {
+      ...s,
+      clients: s.clients.map(c => c.id === clientId ? { ...c, debt: Math.max(0, c.debt - amount) } : c),
+      transactions: [tx, ...s.transactions]
+    };
   });
 }
 

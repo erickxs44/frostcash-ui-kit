@@ -10,6 +10,7 @@ import {
   Plus,
   Snowflake,
   Bell,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuickActionModal } from "./QuickActionModal";
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pdv", label: "PDV", icon: ShoppingCart },
   { to: "/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
+  { to: "/contas-a-receber", label: "A Receber", icon: Users },
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;

@@ -15,6 +15,7 @@ import { Route as LancamentosRouteImport } from './routes/lancamentos'
 import { Route as EstoqueRouteImport } from './routes/estoque'
 import { Route as ConfiguracoesRouteImport } from './routes/configuracoes'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ContasAReceberRouteImport } from './routes/contas-a-receber'
 
 const PdvRoute = PdvRouteImport.update({
   id: '/pdv',
@@ -46,10 +47,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContasAReceberRoute = ContasAReceberRouteImport.update({
+  id: '/contas-a-receber',
+  path: '/contas-a-receber',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/contas-a-receber': typeof ContasAReceberRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/contas-a-receber': typeof ContasAReceberRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/configuracoes': typeof ConfiguracoesRoute
+  '/contas-a-receber': typeof ContasAReceberRoute
   '/estoque': typeof EstoqueRoute
   '/lancamentos': typeof LancamentosRoute
   '/login': typeof LoginRoute
@@ -77,16 +86,18 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/configuracoes'
+    | '/contas-a-receber'
     | '/estoque'
     | '/lancamentos'
     | '/login'
     | '/pdv'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/configuracoes' | '/estoque' | '/lancamentos' | '/login' | '/pdv'
+  to: '/' | '/configuracoes' | '/contas-a-receber' | '/estoque' | '/lancamentos' | '/login' | '/pdv'
   id:
     | '__root__'
     | '/'
     | '/configuracoes'
+    | '/contas-a-receber'
     | '/estoque'
     | '/lancamentos'
     | '/login'
@@ -96,6 +107,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfiguracoesRoute: typeof ConfiguracoesRoute
+  ContasAReceberRoute: typeof ContasAReceberRoute
   EstoqueRoute: typeof EstoqueRoute
   LancamentosRoute: typeof LancamentosRoute
   LoginRoute: typeof LoginRoute
@@ -139,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConfiguracoesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contas-a-receber': {
+      id: '/contas-a-receber'
+      path: '/contas-a-receber'
+      fullPath: '/contas-a-receber'
+      preLoaderRoute: typeof ContasAReceberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -152,6 +171,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfiguracoesRoute: ConfiguracoesRoute,
+  ContasAReceberRoute: ContasAReceberRoute,
   EstoqueRoute: EstoqueRoute,
   LancamentosRoute: LancamentosRoute,
   LoginRoute: LoginRoute,

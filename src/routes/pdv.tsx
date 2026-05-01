@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, CreditCard, Banknote, Smartphone, IceCream, Plus, Minus, Settings, X, Save, Edit, Check, Scale } from "lucide-react";
+import { Trash2, CreditCard, Banknote, Smartphone, IceCream, Plus, Minus, Settings, X, Save, Edit, Check, Scale, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { GlassCard } from "@/components/GlassCard";
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/pdv")({
   component: PDV,
 });
 
-type PaymentMethod = "Dinheiro" | "Cartão" | "PIX";
+type PaymentMethod = "Dinheiro" | "Cartão" | "PIX" | "Fiado";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -51,7 +51,9 @@ function PDV() {
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [payment, setPayment] = useState<PaymentMethod>("Dinheiro");
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const clients = useStore((s) => s.clients);
 
   // Buffet
   const [pesoGrama, setPesoGrama] = useState<string>("");
@@ -149,13 +151,18 @@ function PDV() {
 
   async function handleSaveSale() {
     if (cart.length === 0) return;
+    if (payment === "Fiado" && !selectedClientId) {
+      toast.error("Selecione um cliente para a venda fiada.");
+      return;
+    }
     setSaving(true);
     try {
       await new Promise((r) => setTimeout(r, 300));
-      registerSale(cart, payment);
+      registerSale(cart, payment, payment === "Fiado" ? selectedClientId : undefined);
       toast.success("Venda registrada com sucesso!");
       setCart([]);
       setPayment("Dinheiro");
+      setSelectedClientId("");
     } catch {
       toast.error("Não foi possível registrar a venda.");
     } finally {
@@ -356,30 +363,50 @@ function PDV() {
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground mb-2">Forma de pagamento</p>
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-4 gap-2 mb-3">
                 {[
                   { l: "Dinheiro" as const, i: Banknote },
                   { l: "Cartão" as const, i: CreditCard },
                   { l: "PIX" as const, i: Smartphone },
+                  { l: "Fiado" as const, i: BookOpen },
                 ].map(({ l, i: Ic }) => {
                   const active = payment === l;
                   return (
                     <button
                       key={l}
                       onClick={() => setPayment(l)}
-                      className={`relative rounded-xl p-3 flex flex-col items-center gap-1 transition-all active:scale-95 ${
+                      className={`relative rounded-xl p-2 flex flex-col items-center gap-1 transition-all active:scale-95 ${
                         active
                           ? "bg-gradient-primary text-primary-foreground shadow-glow"
                           : "glass text-foreground hover:bg-white/10"
                       }`}
                     >
-                      <Ic className={`h-5 w-5 ${active ? "text-primary-foreground" : "text-primary"}`} />
-                      <span className="text-xs font-medium">{l}</span>
+                      <Ic className={`h-4 w-4 ${active ? "text-primary-foreground" : "text-primary"}`} />
+                      <span className="text-[10px] font-medium">{l}</span>
                     </button>
                   );
                 })}
               </div>
+
+              {payment === "Fiado" && (
+                <div className="mb-4">
+                  <label className="text-xs text-muted-foreground block mb-1">Selecione o Cliente</label>
+                  {clients && clients.length > 0 ? (
+                    <select
+                      value={selectedClientId}
+                      onChange={(e) => setSelectedClientId(e.target.value)}
+                      className="w-full bg-black/20 border border-white/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="">-- Selecione --</option>
+                      {clients.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-destructive bg-destructive/10 p-2 rounded">Nenhum cliente cadastrado. Cadastre em "Contas a Receber".</p>
+                  )}
+                </div>
+              )}
               <Button
                 variant="gradient"
                 size="lg"
