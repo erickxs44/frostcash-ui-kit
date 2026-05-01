@@ -216,9 +216,9 @@ export function calculateProfit(txs: Transaction[]): number {
   let totalIn = 0;
   let totalOut = 0;
   for (const t of txs) {
-    if (t.kind === "sale" || t.kind === "debt_payment") {
+    if ((t.kind === "sale" && t.payment !== "Fiado") || t.kind === "debt_payment") {
       totalIn += t.amount;
-    } else {
+    } else if (t.amount < 0) {
       totalOut += Math.abs(t.amount);
     }
   }

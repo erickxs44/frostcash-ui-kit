@@ -57,7 +57,7 @@ function Dashboard() {
   const balance = calculateBalance(transactions);
   const profit = calculateProfit(transactions);
 
-  const entradasHoje = todaysTx.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const entradasHoje = todaysTx.filter((t) => t.amount > 0 && t.payment !== "Fiado").reduce((s, t) => s + t.amount, 0);
   const saidasHoje = todaysTx.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
   const itensVendidos = todaysTx
     .filter((t) => t.kind === "sale")
@@ -69,12 +69,13 @@ function Dashboard() {
       const sorted = [...todaysTx].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       let acc = 0;
       const points = sorted.map(t => {
-        acc += t.amount;
+        const actualAmount = t.payment === "Fiado" ? 0 : t.amount;
+        acc += actualAmount;
         return {
           label: new Date(t.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' }),
           v: acc,
-          type: t.amount >= 0 ? "Venda" : "Despesa",
-          delta: t.amount
+          type: actualAmount >= 0 ? "Venda" : "Despesa",
+          delta: actualAmount
         };
       });
       if (points.length === 0) {
@@ -93,7 +94,7 @@ function Dashboard() {
         const key = d.toDateString();
         const dayTxs = transactions.filter((t) => new Date(t.date).toDateString() === key);
         
-        const dayNet = dayTxs.reduce((s, t) => s + t.amount, 0);
+        const dayNet = dayTxs.reduce((s, t) => s + (t.payment === "Fiado" ? 0 : t.amount), 0);
         acc += dayNet;
         
         const label = range === 7 
@@ -166,9 +167,9 @@ function Dashboard() {
         dateLabel = `Últimos ${days} dias`;
       }
 
-      const pix = targetTxs.filter(t => t.kind === "sale" && t.payment === "PIX").reduce((sum, t) => sum + t.amount, 0);
-      const cartao = targetTxs.filter(t => t.kind === "sale" && t.payment === "Cartão").reduce((sum, t) => sum + t.amount, 0);
-      const dinheiro = targetTxs.filter(t => t.kind === "sale" && t.payment === "Dinheiro").reduce((sum, t) => sum + t.amount, 0);
+      const pix = targetTxs.filter(t => (t.kind === "sale" || t.kind === "debt_payment") && t.payment === "PIX").reduce((sum, t) => sum + t.amount, 0);
+      const cartao = targetTxs.filter(t => (t.kind === "sale" || t.kind === "debt_payment") && t.payment === "Cartão").reduce((sum, t) => sum + t.amount, 0);
+      const dinheiro = targetTxs.filter(t => (t.kind === "sale" || t.kind === "debt_payment") && t.payment === "Dinheiro").reduce((sum, t) => sum + t.amount, 0);
       
       const totalVendas = pix + cartao + dinheiro;
       const saidasPeriodo = targetTxs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
