@@ -19,7 +19,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pdv", label: "PDV", icon: ShoppingCart },
   { to: "/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
-  { to: "/contas-a-receber", label: "A Receber", icon: Users },
+  { to: "/contas-a-receber", label: "Fiados", icon: Users },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 

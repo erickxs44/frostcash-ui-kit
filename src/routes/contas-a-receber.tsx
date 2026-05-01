@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { UserPlus, User, Phone, CheckCircle, CreditCard } from "lucide-react";
 
 export const Route = createFileRoute("/contas-a-receber")({
-  head: () => ({ meta: [{ title: "Contas a Receber — FrostCash" }] }),
+  head: () => ({ meta: [{ title: "Fiados — FrostCash" }] }),
   component: ContasAReceber,
 });
 
@@ -60,9 +60,9 @@ function ContasAReceber() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Contas a <span className="text-gradient">Receber</span>
+              Gestão de <span className="text-gradient">Fiados</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Gerencie clientes e vendas no fiado.</p>
+            <p className="text-sm text-muted-foreground mt-1">Gerencie clientes e cobranças pendentes.</p>
           </div>
           <Button variant="gradient" onClick={() => setShowAddClient(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
