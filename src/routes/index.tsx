@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { calculateBalance, calculateProfit, useStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
